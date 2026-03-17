@@ -7,8 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -45,75 +45,113 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Patria y Vida — Custom semantic colors */
+  --color-cuba-blue: var(--cuba-blue);
+  --color-cuba-blue-deep: var(--cuba-blue-deep);
+  --color-cuba-red: var(--cuba-red);
+  --color-cuba-red-light: var(--cuba-red-light);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Light theme — kept as fallback */
+  --background: #f8f7f4;
+  --foreground: #0c1428;
+  --card: #ffffff;
+  --card-foreground: #0c1428;
+  --popover: #ffffff;
+  --popover-foreground: #0c1428;
+  --primary: #0c1428;
+  --primary-foreground: #ffffff;
+  --secondary: #e8ebf0;
+  --secondary-foreground: #1a2b5e;
+  --muted: #e8ebf0;
+  --muted-foreground: #5c6478;
+  --accent: #cc2936;
+  --accent-foreground: #ffffff;
+  --destructive: #cc2936;
+  --border: #d4d8e0;
+  --input: #d4d8e0;
+  --ring: #0c1428;
+  --chart-1: #1a2b5e;
+  --chart-2: #cc2936;
+  --chart-3: #2a4494;
+  --chart-4: #e0434f;
+  --chart-5: #4a6fa5;
+  --radius: 0.75rem;
+  --sidebar: #f0f1f4;
+  --sidebar-foreground: #0c1428;
+  --sidebar-primary: #0c1428;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8ebf0;
+  --sidebar-accent-foreground: #1a2b5e;
+  --sidebar-border: #d4d8e0;
+  --sidebar-ring: #0c1428;
+
+  /* Custom palette tokens */
+  --cuba-blue: #1a2b5e;
+  --cuba-blue-deep: #0c1428;
+  --cuba-red: #cc2936;
+  --cuba-red-light: #e0434f;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Deep blue-black base — from Orishas poster background */
+  --background: #0a0f1e;
+  --foreground: #f0ebe0;
+
+  /* Elevated surfaces — dark navy */
+  --card: #111827;
+  --card-foreground: #f0ebe0;
+  --popover: #111827;
+  --popover-foreground: #f0ebe0;
+
+  /* Primary — Clean white: elegant, lets the blue dominate */
+  --primary: #f0ebe0;
+  --primary-foreground: #0a0f1e;
+
+  /* Secondary — Muted blue surface */
+  --secondary: #151d35;
+  --secondary-foreground: #f0ebe0;
+
+  /* Muted — Darker blue for subtle backgrounds */
+  --muted: #151d35;
+  --muted-foreground: #8891a8;
+
+  /* Accent — Cuban red for tags, badges, highlights */
+  --accent: #cc2936;
+  --accent-foreground: #ffffff;
+
+  /* Destructive — Same Cuban red */
+  --destructive: #cc2936;
+
+  /* Borders — Faint blue-tinted lines */
+  --border: #1c2640;
+  --input: #1c2640;
+  --ring: #f0ebe0;
+
+  /* Charts */
+  --chart-1: #1a2b5e;
+  --chart-2: #cc2936;
+  --chart-3: #2a4494;
+  --chart-4: #e0434f;
+  --chart-5: #4a6fa5;
+
+  /* Sidebar */
+  --sidebar: #111827;
+  --sidebar-foreground: #f0ebe0;
+  --sidebar-primary: #f0ebe0;
+  --sidebar-primary-foreground: #0a0f1e;
+  --sidebar-accent: #151d35;
+  --sidebar-accent-foreground: #f0ebe0;
+  --sidebar-border: #1c2640;
+  --sidebar-ring: #f0ebe0;
+
+  /* Custom palette tokens */
+  --cuba-blue: #1a2b5e;
+  --cuba-blue-deep: #0c1428;
+  --cuba-red: #cc2936;
+  --cuba-red-light: #e0434f;
 }
 
 @layer base {
