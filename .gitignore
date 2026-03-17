@@ -36,6 +36,7 @@ yarn-error.log*
 
 # opencode (local skills and cache)
 .opencode/
+opencode.json
 
 # vercel
 .vercel
