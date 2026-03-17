@@ -6,7 +6,7 @@
       "url": "https://mcp.supabase.com/mcp?project_ref=dxyhbdrkbquwoijigvuv",
       "enabled": true,
       "headers": {
-        "Authorization": "Bearer sbp_8a9d4427b4b4fe0b1e06d97aaeaf51ba96b06e56"
+        "Authorization": "Bearer {env:SUPABASE_PAT}"
       }
     },
     "mercadopago-mcp-server": {

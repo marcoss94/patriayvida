@@ -34,8 +34,7 @@ yarn-error.log*
 .env*
 !.env.example
 
-# opencode (contains auth tokens)
-opencode.json
+# opencode (local skills and cache)
 .opencode/
 
 # vercel
