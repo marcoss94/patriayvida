@@ -1,0 +1,27 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "supabase": {
+      "type": "remote",
+      "url": "https://mcp.supabase.com/mcp?project_ref=dxyhbdrkbquwoijigvuv",
+      "enabled": true,
+      "headers": {
+        "Authorization": "Bearer sbp_8a9d4427b4b4fe0b1e06d97aaeaf51ba96b06e56"
+      }
+    },
+    "mercadopago-mcp-server": {
+      "type": "remote",
+      "url": "https://mcp.mercadopago.com/mcp",
+      "enabled": true,
+      "oauth": false,
+      "headers": {
+        "Authorization": "Bearer {env:MERCADOPAGO_ACCESS_TOKEN}"
+      }
+    },
+    "shadcn": {
+      "type": "local",
+      "command": ["npx", "shadcn@latest", "mcp"],
+      "enabled": true
+    }
+  }
+}
