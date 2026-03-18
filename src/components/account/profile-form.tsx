@@ -52,7 +52,10 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
       .eq("id", profile.id);
 
     if (error) {
-      setMessage({ type: "error", text: error.message });
+      setMessage({
+        type: "error",
+        text: "No pudimos guardar tus cambios en este momento. Intentá de nuevo en unos minutos.",
+      });
     } else {
       setMessage({
         type: "success",
@@ -64,14 +67,14 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
   }
 
   return (
-    <Card className="rounded-xl border-border bg-card">
-      <CardHeader>
+    <Card className="rounded-2xl border-slate-800 bg-slate-950/60 py-0 shadow-[0_24px_90px_rgba(10,15,30,0.45)]">
+      <CardHeader className="gap-3 border-b border-slate-800 px-6 pt-6 pb-5 sm:px-7">
         <CardTitle className="text-lg font-bold text-card-foreground">
           Mi perfil
         </CardTitle>
       </CardHeader>
       <form onSubmit={handleSubmit}>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className="flex flex-col gap-5 px-6 py-6 sm:px-7">
           {message && (
             <div
               className={`rounded-lg border p-3 text-sm ${
@@ -151,7 +154,7 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
             />
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="border-slate-800 bg-slate-950/80 px-6 py-5 sm:px-7">
           <Button
             type="submit"
             disabled={loading}

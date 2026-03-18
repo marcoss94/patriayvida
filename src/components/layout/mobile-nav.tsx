@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -16,7 +15,6 @@ import {
 } from "@/components/ui/sheet";
 import {
   Menu,
-  ShoppingCart,
   User,
   Heart,
   Package,
@@ -24,6 +22,7 @@ import {
   LayoutGrid,
   Settings,
 } from "lucide-react";
+import { CartButton } from "@/components/cart/cart-button";
 
 interface MobileNavProps {
   user: {
@@ -46,18 +45,7 @@ export function MobileNav({ user }: MobileNavProps) {
 
   return (
     <div className="flex items-center gap-1">
-      <Link href="/carrito" className="relative">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="cursor-pointer text-muted-foreground transition-colors duration-200 hover:text-foreground"
-        >
-          <ShoppingCart className="size-5" />
-        </Button>
-        <Badge className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-primary p-0 text-xs font-bold text-primary-foreground">
-          0
-        </Badge>
-      </Link>
+      <CartButton />
 
       <Sheet>
         <SheetTrigger
@@ -178,19 +166,19 @@ export function MobileNav({ user }: MobileNavProps) {
               </div>
             ) : (
               <div className="flex flex-col gap-2 px-3">
-                <Link href="/login">
-                  <Button className="w-full cursor-pointer rounded-lg bg-primary font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90">
-                    Iniciar sesión
-                  </Button>
-                </Link>
-                <Link href="/registro">
-                  <Button
-                    variant="outline"
-                    className="w-full cursor-pointer rounded-lg border-border transition-colors duration-200"
-                  >
-                    Crear cuenta
-                  </Button>
-                </Link>
+                <Button
+                  render={<Link href="/login" />}
+                  className="w-full cursor-pointer rounded-lg bg-primary font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90"
+                >
+                  Iniciar sesión
+                </Button>
+                <Button
+                  render={<Link href="/registro" />}
+                  variant="outline"
+                  className="w-full cursor-pointer rounded-lg border-border transition-colors duration-200"
+                >
+                  Crear cuenta
+                </Button>
               </div>
             )}
           </div>

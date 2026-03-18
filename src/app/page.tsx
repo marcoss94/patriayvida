@@ -35,6 +35,8 @@ export default function Home() {
             ★
           </div>
 
+
+
           {/* Subheading */}
           <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
             Encontrá los mejores productos con envío a todo el país. Calidad,
@@ -43,15 +45,14 @@ export default function Home() {
 
           {/* CTA — white primary button */}
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Link href="/productos">
-              <Button
-                size="lg"
-                className="cursor-pointer gap-2 rounded-xl bg-primary px-8 text-base font-semibold text-primary-foreground transition-all duration-200 hover:bg-primary/90"
-              >
-                Explorar productos
-                <ArrowRight className="size-4" />
-              </Button>
-            </Link>
+            <Button
+              render={<Link href="/productos" />}
+              size="lg"
+              className="cursor-pointer gap-2 rounded-xl bg-primary px-8 text-base font-semibold text-primary-foreground transition-all duration-200 hover:bg-primary/90"
+            >
+              Explorar productos
+              <ArrowRight className="size-4" />
+            </Button>
           </div>
         </div>
 

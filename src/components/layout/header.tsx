@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +12,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  ShoppingCart,
   User,
   Heart,
   Package,
@@ -23,6 +21,7 @@ import {
 } from "lucide-react";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { CartButton } from "@/components/cart/cart-button";
 
 export async function Header() {
   const supabase = await createClient();
@@ -68,16 +67,15 @@ export async function Header() {
 
         {/* Desktop Nav — Center */}
         <nav className="hidden items-center gap-2 md:flex">
-          <Link href="/productos">
-            <Button
-              variant="outline"
-              size="sm"
-              className="cursor-pointer gap-2 rounded-full border-border px-4 text-sm font-medium transition-colors duration-200 hover:border-primary hover:text-primary"
-            >
-              <LayoutGrid className="size-4" />
-              Catálogo
-            </Button>
-          </Link>
+          <Button
+            render={<Link href="/productos" />}
+            variant="outline"
+            size="sm"
+            className="cursor-pointer gap-2 rounded-full border-border px-4 text-sm font-medium transition-colors duration-200 hover:border-primary hover:text-primary"
+          >
+            <LayoutGrid className="size-4" />
+            Catálogo
+          </Button>
 
           <Link
             href="/productos"
@@ -103,26 +101,17 @@ export async function Header() {
         <div className="hidden items-center gap-1 md:flex">
           {/* Search */}
           <Button
+            render={<Link href="/productos" />}
             variant="ghost"
             size="icon"
+            aria-label="Buscar productos"
             className="cursor-pointer text-muted-foreground transition-colors duration-200 hover:text-foreground"
           >
             <Search className="size-5" />
           </Button>
 
           {/* Cart */}
-          <Link href="/carrito" className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="cursor-pointer text-muted-foreground transition-colors duration-200 hover:text-foreground"
-            >
-              <ShoppingCart className="size-5" />
-            </Button>
-            <Badge className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-primary p-0 text-xs font-bold text-primary-foreground">
-              0
-            </Badge>
-          </Link>
+          <CartButton />
 
           {user ? (
             <DropdownMenu>
@@ -144,20 +133,19 @@ export async function Header() {
                 className="w-56 border-border bg-card"
                 align="end"
               >
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col gap-1">
-                    {fullName && (
-                      <p className="text-sm font-medium leading-none text-card-foreground">
-                        {fullName}
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      {user.email}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-border" />
                 <DropdownMenuGroup>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col gap-1">
+                      {fullName && (
+                        <p className="text-sm font-medium leading-none text-card-foreground">
+                          {fullName}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {user.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
                   <DropdownMenuItem
                     render={<Link href="/cuenta" />}
                     className="cursor-pointer transition-colors duration-200"
@@ -185,14 +173,13 @@ export async function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link href="/login" className="ml-2">
-              <Button
-                size="sm"
-                className="cursor-pointer rounded-lg bg-primary font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90"
-              >
-                Iniciar sesión
-              </Button>
-            </Link>
+            <Button
+              render={<Link href="/login" />}
+              size="sm"
+              className="ml-2 cursor-pointer rounded-lg bg-primary font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90"
+            >
+              Iniciar sesión
+            </Button>
           )}
         </div>
 
