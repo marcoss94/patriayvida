@@ -2,6 +2,26 @@ import type { Json, Tables } from "@/types/database";
 
 export type OrderRow = Tables<"orders">;
 
+export const BUSINESS_ORDER_STATUSES = [
+  "pending",
+  "paid",
+  "preparing",
+  "shipped",
+  "delivered",
+  "cancelled",
+] as const;
+
+export type BusinessOrderStatus = (typeof BUSINESS_ORDER_STATUSES)[number];
+
+const ORDER_STATUS_TRANSITIONS: Record<BusinessOrderStatus, readonly BusinessOrderStatus[]> = {
+  pending: ["paid", "preparing", "cancelled"],
+  paid: ["preparing", "cancelled"],
+  preparing: ["shipped", "cancelled"],
+  shipped: ["delivered"],
+  delivered: [],
+  cancelled: [],
+};
+
 type ShippingAddressSnapshot = {
   fullName: string | null;
   email: string | null;
@@ -22,6 +42,18 @@ function getStringField(record: Record<string, Json | undefined>, key: string) {
 
 export function formatOrderReference(orderId: string) {
   return `PYV-${orderId.slice(0, 8).toUpperCase()}`;
+}
+
+export function isBusinessOrderStatus(value: string): value is BusinessOrderStatus {
+  return BUSINESS_ORDER_STATUSES.includes(value as BusinessOrderStatus);
+}
+
+export function getAllowedStatusTransitions(status: OrderRow["status"]) {
+  if (!isBusinessOrderStatus(status)) {
+    return [] as const;
+  }
+
+  return ORDER_STATUS_TRANSITIONS[status];
 }
 
 export function formatOrderDate(value: string) {

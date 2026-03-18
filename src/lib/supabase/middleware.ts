@@ -47,15 +47,26 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Admin route protection: check admin email
-  if (
-    user &&
-    request.nextUrl.pathname.startsWith("/admin") &&
-    user.email !== process.env.ADMIN_EMAIL
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
+  if (user && request.nextUrl.pathname.startsWith("/admin")) {
+    const configuredAdminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    const userEmail = user.email?.trim().toLowerCase();
+    let isAdmin = Boolean(configuredAdminEmail && userEmail === configuredAdminEmail);
+
+    if (!isAdmin) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      isAdmin = profile?.is_admin ?? false;
+    }
+
+    if (!isAdmin) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;
