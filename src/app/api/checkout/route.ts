@@ -11,6 +11,7 @@ import {
   isMercadoPagoConfigured,
 } from "@/lib/mercadopago";
 import { createClient } from "@/lib/supabase/server";
+import { isProductionRuntime } from "@/lib/env";
 
 type VariantRow = {
   id: string;
@@ -216,7 +217,39 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = await createClient();
+  if (
+    isProductionRuntime() &&
+    !APP_URL_ENV_KEYS.some((envKey) => process.env[envKey]?.trim())
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Configuración incompleta: en producción definí APP_URL (o NEXT_PUBLIC_APP_URL) para construir URLs de retorno y webhooks de Mercado Pago.",
+      },
+      { status: 500 }
+    );
+  }
+
+  const requestId = request.headers.get("x-request-id");
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+
+  try {
+    supabase = await createClient();
+  } catch (error) {
+    console.error("Checkout rejected because Supabase runtime config is invalid", {
+      requestId,
+      error,
+    });
+
+    return NextResponse.json(
+      {
+        error:
+          "Configuración incompleta del servidor para checkout (Supabase). Revisá NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+      },
+      { status: 500 }
+    );
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -239,6 +272,13 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = normalizeCheckoutPayload(parsed.data);
+  console.info("Checkout payload accepted", {
+    requestId,
+    userId: user.id,
+    deliveryMethod: payload.deliveryMethod,
+    lineItems: payload.cart.items.length,
+  });
+
   const baseUrlResult = resolveCheckoutBaseUrl(request);
 
   if (!baseUrlResult.ok) {
@@ -357,6 +397,14 @@ export async function POST(request: NextRequest) {
     .filter((line): line is NonNullable<typeof line> => line !== null);
 
   if (validationIssues.length > 0 || orderLines.length === 0) {
+    console.warn("Checkout rejected after stock reconciliation", {
+      requestId,
+      userId: user.id,
+      issues: validationIssues,
+      requestedVariantCount: requestedLines.length,
+      resolvedVariantCount: orderLines.length,
+    });
+
     return NextResponse.json(
       {
         error:
@@ -407,8 +455,25 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (orderError || !order) {
+    console.error("Checkout failed while creating order", {
+      requestId,
+      userId: user.id,
+      error: orderError,
+    });
+
     return NextResponse.json({ error: "No pudimos crear la orden." }, { status: 500 });
   }
+
+  console.info("Checkout order created", {
+    requestId,
+    orderId: order.id,
+    userId: user.id,
+    deliveryMethod: payload.deliveryMethod,
+    subtotal,
+    shippingCost,
+    total,
+    lineItems: orderLines.length,
+  });
 
   const { error: orderItemsError } = await supabase.from("order_items").insert(
     orderLines.map((line) => ({
@@ -420,6 +485,13 @@ export async function POST(request: NextRequest) {
   );
 
   if (orderItemsError) {
+    console.error("Checkout failed while creating order items", {
+      requestId,
+      orderId: order.id,
+      userId: user.id,
+      error: orderItemsError,
+    });
+
     await supabase
       .from("orders")
       .update({ mp_status: "order_items_error" })
@@ -498,6 +570,14 @@ export async function POST(request: NextRequest) {
       .eq("id", order.id)
       .eq("user_id", user.id);
 
+    console.info("Checkout Mercado Pago preference created", {
+      requestId,
+      orderId: order.id,
+      preferenceId: preference.id,
+      baseUrlSource: baseUrlResult.source,
+      baseUrlEnvVar: baseUrlResult.envVar,
+    });
+
     return NextResponse.json({
       orderId: order.id,
       preferenceId: preference.id,
@@ -509,6 +589,7 @@ export async function POST(request: NextRequest) {
     const mpError = getMercadoPagoErrorDetails(error);
 
     console.error("Mercado Pago preference creation failed", {
+      requestId,
       orderId: order.id,
       baseUrl: baseUrlResult.baseUrl,
       baseUrlSource: baseUrlResult.source,

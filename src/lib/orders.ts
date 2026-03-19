@@ -56,6 +56,18 @@ export function getAllowedStatusTransitions(status: OrderRow["status"]) {
   return ORDER_STATUS_TRANSITIONS[status];
 }
 
+export function canTransitionOrderStatus(from: OrderRow["status"], to: OrderRow["status"]) {
+  if (from === to) {
+    return true;
+  }
+
+  if (!isBusinessOrderStatus(from) || !isBusinessOrderStatus(to)) {
+    return false;
+  }
+
+  return ORDER_STATUS_TRANSITIONS[from].includes(to);
+}
+
 export function formatOrderDate(value: string) {
   const date = new Date(value);
 

@@ -11,26 +11,78 @@ type CheckoutOrderStatusRow = {
   updated_at: string;
 };
 
-function derivePaymentState(order: Pick<CheckoutOrderStatusRow, "status" | "mp_status">) {
+type CheckoutPaymentState = "paid" | "failure" | "pending";
+type CheckoutPaymentStateDetail =
+  | "order_paid"
+  | "order_cancelled"
+  | "payment_approved"
+  | "payment_rejected"
+  | "payment_pending"
+  | "payment_unknown";
+
+function derivePaymentState(order: Pick<CheckoutOrderStatusRow, "status" | "mp_status">): {
+  state: CheckoutPaymentState;
+  detail: CheckoutPaymentStateDetail;
+  message: string;
+  shouldPoll: boolean;
+} {
   if (["paid", "preparing", "shipped", "delivered"].includes(order.status)) {
-    return "paid" as const;
+    return {
+      state: "paid",
+      detail: "order_paid",
+      message: "Pago confirmado. Tu pedido ya está en proceso.",
+      shouldPoll: false,
+    };
   }
 
   if (order.status === "cancelled") {
-    return "failure" as const;
+    return {
+      state: "failure",
+      detail: "order_cancelled",
+      message: "La orden fue cancelada. Si querés, podés reintentar la compra.",
+      shouldPoll: false,
+    };
   }
 
   const mpStatusBase = order.mp_status?.split(":", 1)[0] ?? null;
 
   if (mpStatusBase && ["approved", "authorized"].includes(mpStatusBase)) {
-    return "paid" as const;
+    return {
+      state: "paid",
+      detail: "payment_approved",
+      message: "Mercado Pago confirmó el pago. Estamos terminando de actualizar la orden.",
+      shouldPoll: true,
+    };
   }
 
   if (mpStatusBase && ["rejected", "cancelled", "refunded", "charged_back"].includes(mpStatusBase)) {
-    return "failure" as const;
+    return {
+      state: "failure",
+      detail: "payment_rejected",
+      message: "El pago no fue acreditado. Podés reintentar cuando quieras.",
+      shouldPoll: false,
+    };
   }
 
-  return "pending" as const;
+  if (
+    mpStatusBase &&
+    ["pending", "in_process", "in_mediation", "action_required", "preference_created", "preference_pending"].includes(mpStatusBase)
+  ) {
+    return {
+      state: "pending",
+      detail: "payment_pending",
+      message: "Tu pago está pendiente de confirmación. Este estado puede tardar unos minutos.",
+      shouldPoll: true,
+    };
+  }
+
+  return {
+    state: "pending",
+    detail: "payment_unknown",
+    message:
+      "Recibimos tu orden, pero todavía no tenemos una confirmación clara del pago. Revisá Mis pedidos en unos minutos.",
+    shouldPoll: true,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -46,7 +98,26 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const supabase = await createClient();
+  const requestId = request.headers.get("x-request-id");
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+
+  try {
+    supabase = await createClient();
+  } catch (error) {
+    console.error("Checkout status rejected because Supabase runtime config is invalid", {
+      requestId,
+      orderId,
+      error,
+    });
+
+    return NextResponse.json(
+      {
+        error:
+          "Configuración incompleta del servidor para consultar órdenes (Supabase). Revisá NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+      },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
+    );
+  }
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -67,6 +138,7 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("Failed to fetch checkout order status", {
+      requestId,
       orderId,
       userId: user.id,
       error,
@@ -85,6 +157,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const derived = derivePaymentState(data);
+
   return NextResponse.json(
     {
       order: {
@@ -95,7 +169,10 @@ export async function GET(request: NextRequest) {
         mpPreferenceId: data.mp_preference_id,
         total: data.total,
         updatedAt: data.updated_at,
-        paymentState: derivePaymentState(data),
+        paymentState: derived.state,
+        paymentStateDetail: derived.detail,
+        paymentMessage: derived.message,
+        shouldPoll: derived.shouldPoll,
       },
     },
     {

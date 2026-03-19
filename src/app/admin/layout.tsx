@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { LayoutDashboard, Package, Settings, ShoppingBag } from "lucide-react";
+import { LayoutDashboard, Package, Settings, ShoppingBag, Tag } from "lucide-react";
 import { requireAdminRouteAccess } from "@/lib/admin-auth";
 
 const adminNavItems = [
   { href: "/admin", label: "Panel", icon: LayoutDashboard },
   { href: "/admin/pedidos", label: "Pedidos", icon: Package },
   { href: "/admin/productos", label: "Productos", icon: ShoppingBag },
+  { href: "/admin/categorias", label: "Categorías", icon: Tag },
   { href: "/admin/config", label: "Configuración", icon: Settings },
 ] as const;
 

@@ -1,14 +1,23 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { requireEnv } from "@/lib/env";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
+  const supabaseUrl = requireEnv(
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "Set the Supabase project URL for middleware session refresh."
+  );
+  const supabaseAnonKey = requireEnv(
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "Set the Supabase anon key for middleware session refresh."
+  );
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {

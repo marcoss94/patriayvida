@@ -63,6 +63,14 @@ type CheckoutFieldErrors = Partial<Record<string, string>>;
 
 type CheckoutPaymentState = "paid" | "pending" | "failure";
 
+type CheckoutPaymentStateDetail =
+  | "order_paid"
+  | "order_cancelled"
+  | "payment_approved"
+  | "payment_rejected"
+  | "payment_pending"
+  | "payment_unknown";
+
 type CheckoutOrderStatus = {
   id: string;
   status: string;
@@ -72,6 +80,9 @@ type CheckoutOrderStatus = {
   total: number;
   updatedAt: string;
   paymentState: CheckoutPaymentState;
+  paymentStateDetail?: CheckoutPaymentStateDetail;
+  paymentMessage?: string;
+  shouldPoll?: boolean;
 };
 
 const PENDING_CHECKOUT_STORAGE_KEY = "patriayvida-pending-checkout";
@@ -177,7 +188,11 @@ export function CheckoutPageContent({
         setReturnPollCount(attempt);
         setReturnStatusLoading(false);
 
-        if (data.order.paymentState === "pending" && attempt + 1 < RETURN_STATUS_MAX_ATTEMPTS) {
+        if (
+          data.order.paymentState === "pending" &&
+          data.order.shouldPoll !== false &&
+          attempt + 1 < RETURN_STATUS_MAX_ATTEMPTS
+        ) {
           timeoutId = window.setTimeout(
             () => void fetchOrderStatus(attempt + 1),
             RETURN_STATUS_POLL_MS
@@ -1011,6 +1026,10 @@ function getReturnMessage(
 
   if (order.paymentState === "failure") {
     return "Tu pedido figura registrado, pero el pago todavía no fue acreditado. Revisalo o intentá nuevamente cuando quieras.";
+  }
+
+  if (order.paymentMessage) {
+    return order.paymentMessage;
   }
 
   return "Tu pedido ya fue recibido. Apenas tengamos la confirmación final del pago, esta pantalla se va a actualizar.";

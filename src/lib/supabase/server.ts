@@ -1,12 +1,21 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { requireEnv } from "@/lib/env";
 
 export async function createClient() {
   const cookieStore = await cookies();
+  const supabaseUrl = requireEnv(
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "Set the Supabase project URL for authenticated server requests."
+  );
+  const supabaseAnonKey = requireEnv(
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "Set the Supabase anon key for authenticated server requests."
+  );
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {

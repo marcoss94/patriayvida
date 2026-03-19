@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { ChevronRight, Home } from 'lucide-react';
@@ -113,7 +114,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           Productos
         </Link>
         <ChevronRight className="h-4 w-4" />
-        <Link href={`/productos?categoria=${category.slug}`} className="hover:text-red-400">
+        <Link href="/productos" className="hover:text-red-400">
           {category.name}
         </Link>
         <ChevronRight className="h-4 w-4" />
@@ -124,11 +125,13 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Image Gallery (placeholder - just first image for now) */}
         <div className="relative aspect-square overflow-hidden rounded-lg border border-slate-700/50 bg-slate-900/50">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={imageUrl}
             alt={product.name}
-            className="absolute inset-0 h-full w-full object-cover"
+            fill
+            priority
+            sizes="(max-width: 1024px) 100vw, 50vw"
+            className="object-cover"
           />
         </div>
 

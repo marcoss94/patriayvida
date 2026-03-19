@@ -1,4 +1,5 @@
 import { MercadoPagoConfig, MerchantOrder, Payment, Preference } from "mercadopago";
+import { isProductionRuntime, readOptionalEnv, requireEnv } from "@/lib/env";
 
 export type MercadoPagoPreferenceBody = Parameters<Preference["create"]>[0]["body"];
 export type MercadoPagoPreferenceResponse = Awaited<ReturnType<Preference["create"]>>;
@@ -6,11 +7,10 @@ export type MercadoPagoPaymentResponse = Awaited<ReturnType<Payment["get"]>>;
 export type MercadoPagoMerchantOrderResponse = Awaited<ReturnType<MerchantOrder["get"]>>;
 
 function getMercadoPagoClient() {
-  const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-
-  if (!accessToken) {
-    throw new Error("Missing MERCADOPAGO_ACCESS_TOKEN.");
-  }
+  const accessToken = requireEnv(
+    "MERCADOPAGO_ACCESS_TOKEN",
+    "Configure Mercado Pago credentials for checkout and webhook reconciliation."
+  );
 
   return new MercadoPagoConfig({
     accessToken,
@@ -18,7 +18,26 @@ function getMercadoPagoClient() {
 }
 
 export function isMercadoPagoConfigured(): boolean {
-  return Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN);
+  return Boolean(readOptionalEnv("MERCADOPAGO_ACCESS_TOKEN"));
+}
+
+export type MercadoPagoWebhookSecurityMode =
+  | "enforced"
+  | "dev_fallback"
+  | "misconfigured_production";
+
+export function getMercadoPagoWebhookSecurityMode(): MercadoPagoWebhookSecurityMode {
+  const hasWebhookSecret = Boolean(readOptionalEnv("MERCADOPAGO_WEBHOOK_SECRET"));
+
+  if (hasWebhookSecret) {
+    return "enforced";
+  }
+
+  return isProductionRuntime() ? "misconfigured_production" : "dev_fallback";
+}
+
+export function getMercadoPagoWebhookSecret() {
+  return readOptionalEnv("MERCADOPAGO_WEBHOOK_SECRET");
 }
 
 export async function createCheckoutProPreference(
