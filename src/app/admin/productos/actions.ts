@@ -2,9 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { assertAdminActionAccess } from "@/lib/admin-auth";
+import {
+  extractStoragePathFromPublicUrl,
+  generateSku,
+  isAllowedProductImageUrl,
+  parseVariantsFromFormData,
+  sanitizeFileName,
+  type VariantInput,
+} from "@/lib/product-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateSlug } from "@/lib/utils/slug";
-import { AVAILABLE_SIZES, type TShirtSize } from "@/lib/constants/sizes";
 
 export type ProductFormState = {
   error?: string;
@@ -12,48 +19,8 @@ export type ProductFormState = {
   productId?: string;
 };
 
-type VariantInput = {
-  size: TShirtSize;
-  stock: number;
-};
-
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-
-function sanitizeFileName(fileName: string) {
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
-
-function extractStoragePathFromPublicUrl(publicUrl: string) {
-  const match = publicUrl.match(/\/storage\/v1\/object\/public\/product-images\/(.+)$/);
-  return match?.[1] ?? null;
-}
-
-function isAllowedProductImageUrl(url: string) {
-  try {
-    const parsed = new URL(url);
-    const isSupabaseHost = parsed.hostname.endsWith(".supabase.co");
-    const hasExpectedPath = parsed.pathname.startsWith("/storage/v1/object/public/product-images/");
-    return isSupabaseHost && hasExpectedPath;
-  } catch {
-    return false;
-  }
-}
-
-function parseVariantsFromFormData(formData: FormData): VariantInput[] {
-  const variants: VariantInput[] = [];
-  for (const size of AVAILABLE_SIZES) {
-    if (formData.get(`size_${size}`) === "on") {
-      const stock = parseInt(formData.get(`stock_${size}`) as string) || 0;
-      variants.push({ size, stock });
-    }
-  }
-  return variants;
-}
-
-function generateSku(slug: string, size: string): string {
-  return `${slug}-${size.toLowerCase()}`;
-}
 
 export async function createProduct(
   _prev: ProductFormState,
@@ -237,7 +204,7 @@ export async function updateProduct(
 
   // Deactivate unchecked sizes
   for (const [size, existing] of existingBySize) {
-    if (!selectedSizes.has(size as TShirtSize)) {
+    if (!selectedSizes.has(size as VariantInput["size"])) {
       const { error: deactivateVariantError } = await supabase
         .from("product_variants")
         .update({ is_active: false })

@@ -1,6 +1,10 @@
-import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  buildMercadoPagoManifest,
+  parseMercadoPagoSignatureHeader,
+  verifyMercadoPagoSignature,
+} from "@/lib/mercadopago-webhook";
 import {
   getMercadoPagoMerchantOrder,
   getMercadoPagoPayment,
@@ -138,22 +142,9 @@ function verifyWebhookSignature(request: NextRequest) {
     } as const;
   }
 
-  // Parse ts and v1 from x-signature
-  const parts = xSignatureRaw.split(",");
-  let ts: string | undefined;
-  let hash: string | undefined;
+  const signature = parseMercadoPagoSignatureHeader(xSignatureRaw);
 
-  for (const part of parts) {
-    const [key, value] = part.split("=", 2);
-    if (key && value) {
-      const trimmedKey = key.trim();
-      const trimmedValue = value.trim();
-      if (trimmedKey === "ts") ts = trimmedValue;
-      else if (trimmedKey === "v1") hash = trimmedValue;
-    }
-  }
-
-  if (!ts || !hash) {
+  if (!signature) {
     return {
       ok: false,
       mode: "enforced",
@@ -167,27 +158,27 @@ function verifyWebhookSignature(request: NextRequest) {
 
   // Template: id:[data.id_url];request-id:[x-request-id_header];ts:[ts_header];
   // "Si alguno de los valores no está presente, debes removerlo"
-  let manifest = "";
-  if (dataID) manifest += `id:${dataID};`;
-  if (xRequestId) manifest += `request-id:${xRequestId};`;
-  manifest += `ts:${ts};`;
+  const manifest = buildMercadoPagoManifest({
+    dataId: dataID,
+    requestId: xRequestId,
+    ts: signature.ts,
+  });
 
   // Step 3: HMAC-SHA256
-  const cyphedSignature = crypto
-    .createHmac("sha256", secret)
-    .update(manifest)
-    .digest("hex");
-
-  const isValid = cyphedSignature === hash;
+  const { ok: isValid, computed: cyphedSignature } = verifyMercadoPagoSignature({
+    secret,
+    manifest,
+    receivedHash: signature.hash,
+  });
 
   if (!isValid) {
     console.warn("Mercado Pago webhook signature debug", {
       manifest,
       computed: cyphedSignature,
-      received: hash,
+      received: signature.hash,
       dataID,
       xRequestId,
-      ts,
+      ts: signature.ts,
       xSignatureRaw,
       secretFirstChars: secret.substring(0, 6) + "...",
       url: request.url,
