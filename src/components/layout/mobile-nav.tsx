@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -16,13 +17,14 @@ import {
 import {
   Menu,
   User,
-  Heart,
   Package,
   LogOut,
   LayoutGrid,
   Settings,
+  Info,
 } from "lucide-react";
 import { CartButton } from "@/components/cart/cart-button";
+import { cn } from "@/lib/utils";
 
 interface MobileNavProps {
   user: {
@@ -86,13 +88,13 @@ export function MobileNav({ user }: MobileNavProps) {
               <SheetClose
                 render={
                   <Link
-                    href="/productos"
+                    href="/sobre-nosotros"
                     className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-secondary hover:text-foreground"
                   />
                 }
               >
-                <Package className="size-4" />
-                Productos
+                <Info className="size-4" />
+                Sobre nosotros
               </SheetClose>
 
               {user?.isAdmin && (
@@ -144,21 +146,10 @@ export function MobileNav({ user }: MobileNavProps) {
                   <Package className="size-4" />
                   Mis pedidos
                 </SheetClose>
-                <SheetClose
-                  render={
-                    <Link
-                      href="/cuenta/favoritos"
-                      className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors duration-200 hover:bg-secondary hover:text-foreground"
-                    />
-                  }
-                >
-                  <Heart className="size-4" />
-                  Favoritos
-                </SheetClose>
                 <Separator className="bg-border" />
                 <button
                   onClick={handleSignOut}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-destructive transition-colors duration-200 hover:bg-destructive/10"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive transition-colors duration-200 hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/45"
                 >
                   <LogOut className="size-4" />
                   Cerrar sesión
@@ -166,19 +157,29 @@ export function MobileNav({ user }: MobileNavProps) {
               </div>
             ) : (
               <div className="flex flex-col gap-2 px-3">
-                <Button
-                  render={<Link href="/login" />}
-                  className="w-full cursor-pointer rounded-lg bg-primary font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90"
+                <Link
+                  href="/login"
+                  className={cn(
+                    buttonVariants({
+                      className:
+                        "w-full cursor-pointer rounded-lg bg-primary font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90",
+                    })
+                  )}
                 >
                   Iniciar sesión
-                </Button>
-                <Button
-                  render={<Link href="/registro" />}
-                  variant="outline"
-                  className="w-full cursor-pointer rounded-lg border-border transition-colors duration-200"
+                </Link>
+                <Link
+                  href="/registro"
+                  className={cn(
+                    buttonVariants({
+                      variant: "outline",
+                      className:
+                        "w-full cursor-pointer rounded-lg border-border transition-colors duration-200",
+                    })
+                  )}
                 >
                   Crear cuenta
-                </Button>
+                </Link>
               </div>
             )}
           </div>

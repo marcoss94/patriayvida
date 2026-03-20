@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { ProductCard } from '@/components/shop/product-card';
-import { RouteLoading } from '@/components/ui/route-loading';
+import { ProductGridSkeleton } from '@/components/shop/product-grid-skeleton';
+import { PageContainer } from '@/components/layout/page-container';
 import { ShoppingBag } from 'lucide-react';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
@@ -68,7 +69,7 @@ async function ProductosCatalogo() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6 xl:grid-cols-4">
           {productsData.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
@@ -82,10 +83,10 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
   await searchParams;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8 space-y-2">
+    <PageContainer className="py-6 sm:py-8">
+      <div className="mb-6 space-y-2 sm:mb-8">
         <h1 className="text-4xl font-bold text-white">Productos</h1>
-        <p className="text-lg text-slate-400">
+        <p className="text-base text-slate-400 sm:text-lg">
           Explorá nuestra colección completa
         </p>
       </div>
@@ -93,15 +94,11 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
       <Suspense
         key="all-products"
         fallback={
-          <RouteLoading
-            message="Actualizando productos..."
-            compact
-            className="min-h-[320px]"
-          />
+          <ProductGridSkeleton />
         }
       >
         <ProductosCatalogo />
       </Suspense>
-    </div>
+    </PageContainer>
   );
 }

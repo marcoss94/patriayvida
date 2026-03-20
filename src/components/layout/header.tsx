@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -13,15 +13,15 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   User,
-  Heart,
   Package,
-  Search,
   LayoutGrid,
   Settings,
 } from "lucide-react";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { CartButton } from "@/components/cart/cart-button";
+import { PageContainer } from "@/components/layout/page-container";
+import { cn } from "@/lib/utils";
 
 export async function Header() {
   const supabase = await createClient();
@@ -54,11 +54,11 @@ export async function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <PageContainer className="flex h-16 items-center justify-between">
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 transition-colors duration-200 hover:opacity-80"
+          className="flex cursor-pointer items-center gap-2 transition-colors duration-200 hover:opacity-80"
         >
           <span className="text-xl font-bold tracking-tight text-foreground">
             Patria y Vida
@@ -67,21 +67,26 @@ export async function Header() {
 
         {/* Desktop Nav — Center */}
         <nav className="hidden items-center gap-2 md:flex">
-          <Button
-            render={<Link href="/productos" />}
-            variant="outline"
-            size="sm"
-            className="cursor-pointer gap-2 rounded-full border-border px-4 text-sm font-medium transition-colors duration-200 hover:border-primary hover:text-primary"
+          <Link
+            href="/productos"
+            className={cn(
+              buttonVariants({
+                variant: "outline",
+                size: "sm",
+                className:
+                  "cursor-pointer gap-2 rounded-full border-border px-4 text-sm font-medium transition-colors duration-200 hover:border-primary hover:text-primary",
+              })
+            )}
           >
             <LayoutGrid className="size-4" />
             Catálogo
-          </Button>
+          </Link>
 
           <Link
-            href="/productos"
+            href="/sobre-nosotros"
             className="cursor-pointer rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
           >
-            Productos
+            Sobre nosotros
           </Link>
 
           {isAdmin && (
@@ -99,17 +104,6 @@ export async function Header() {
 
         {/* Right side — Actions */}
         <div className="hidden items-center gap-1 md:flex">
-          {/* Search */}
-          <Button
-            render={<Link href="/productos" />}
-            variant="ghost"
-            size="icon"
-            aria-label="Buscar productos"
-            className="cursor-pointer text-muted-foreground transition-colors duration-200 hover:text-foreground"
-          >
-            <Search className="size-5" />
-          </Button>
-
           {/* Cart */}
           <CartButton />
 
@@ -146,40 +140,52 @@ export async function Header() {
                       </p>
                     </div>
                   </DropdownMenuLabel>
-                  <DropdownMenuItem
-                    render={<Link href="/cuenta" />}
-                    className="cursor-pointer transition-colors duration-200"
+                  <Link
+                    href="/cuenta"
+                    className={cn(
+                      buttonVariants({
+                        variant: "ghost",
+                        size: "sm",
+                        className:
+                          "w-full justify-start rounded-md px-1.5 text-sm font-normal transition-colors duration-200",
+                      })
+                    )}
                   >
                     <User className="mr-2 size-4" />
                     Mi perfil
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    render={<Link href="/cuenta/pedidos" />}
-                    className="cursor-pointer transition-colors duration-200"
+                  </Link>
+                  <Link
+                    href="/cuenta/pedidos"
+                    className={cn(
+                      buttonVariants({
+                        variant: "ghost",
+                        size: "sm",
+                        className:
+                          "w-full justify-start rounded-md px-1.5 text-sm font-normal transition-colors duration-200",
+                      })
+                    )}
                   >
                     <Package className="mr-2 size-4" />
                     Mis pedidos
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    render={<Link href="/cuenta/favoritos" />}
-                    className="cursor-pointer transition-colors duration-200"
-                  >
-                    <Heart className="mr-2 size-4" />
-                    Favoritos
-                  </DropdownMenuItem>
+                  </Link>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator className="bg-border" />
                 <SignOutButton />
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button
-              render={<Link href="/login" />}
-              size="sm"
-              className="ml-2 cursor-pointer rounded-lg bg-primary font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90"
+            <Link
+              href="/login"
+              className={cn(
+                buttonVariants({
+                  size: "sm",
+                  className:
+                    "ml-2 cursor-pointer rounded-lg bg-primary font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90",
+                })
+              )}
             >
               Iniciar sesión
-            </Button>
+            </Link>
           )}
         </div>
 
@@ -198,7 +204,7 @@ export async function Header() {
             }
           />
         </div>
-      </div>
+      </PageContainer>
     </header>
   );
 }

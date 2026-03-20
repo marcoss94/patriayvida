@@ -13,6 +13,7 @@ import { OrderStatusBadge } from "@/components/account/order-status-badge";
 import { PaymentStatusBadge } from "@/components/account/payment-status-badge";
 import { updateAdminOrderStatusAction } from "@/app/admin/pedidos/actions";
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import {
   getAllowedStatusTransitions,
   formatOrderDate,
@@ -24,6 +25,7 @@ import {
   type OrderRow,
 } from "@/lib/orders";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/currency";
 import type { Json } from "@/types/database";
 
@@ -184,14 +186,18 @@ export default async function AdminPedidoDetallePage({
         <div className="relative z-10 space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-4">
-              <Button
-                render={<Link href="/admin/pedidos" />}
-                variant="outline"
-                className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-900"
+              <Link
+                href="/admin/pedidos"
+                className={cn(
+                  buttonVariants({
+                    variant: "outline",
+                    className: "border-slate-700 bg-transparent text-slate-200 hover:bg-slate-900",
+                  })
+                )}
               >
                 <ArrowLeft className="size-4" />
                 Volver a pedidos
-              </Button>
+              </Link>
 
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-white sm:text-3xl">{formatOrderReference(order.id)}</h2>
@@ -392,9 +398,9 @@ export default async function AdminPedidoDetallePage({
             </div>
 
             <div className="mt-4">
-              <Button render={<Link href="/admin/pedidos" />} variant="outline" className="w-full">
+              <Link href="/admin/pedidos" className={cn(buttonVariants({ variant: "outline", className: "w-full" }))}>
                 Volver al listado
-              </Button>
+              </Link>
             </div>
           </section>
         </div>

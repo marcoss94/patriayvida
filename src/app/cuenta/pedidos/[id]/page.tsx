@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CreditCard, MapPin, PackageSearch } from "lucide-react";
 import { PaymentStatusBadge } from "@/components/account/payment-status-badge";
 import { OrderStatusBadge } from "@/components/account/order-status-badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import {
   formatOrderDate,
   formatOrderReference,
@@ -14,6 +14,7 @@ import {
   type OrderRow,
 } from "@/lib/orders";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/currency";
 
 type PedidoDetallePageProps = {
@@ -130,14 +131,18 @@ export default async function PedidoDetallePage({ params }: PedidoDetallePagePro
         <div className="relative z-10 space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-4">
-              <Button
-                render={<Link href="/cuenta/pedidos" />}
-                variant="outline"
-                className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-900"
+              <Link
+                href="/cuenta/pedidos"
+                className={cn(
+                  buttonVariants({
+                    variant: "outline",
+                    className: "border-slate-700 bg-transparent text-slate-200 hover:bg-slate-900",
+                  })
+                )}
               >
                 <ArrowLeft className="size-4" />
                 Volver a pedidos
-              </Button>
+              </Link>
 
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-white sm:text-3xl">{formatOrderReference(order.id)}</h2>
@@ -255,9 +260,17 @@ export default async function PedidoDetallePage({ params }: PedidoDetallePagePro
             </div>
 
             <div className="mt-4">
-              <Button render={<Link href="/productos" />} className="w-full bg-red-600 text-white hover:bg-red-700">
+              <Link
+                href="/productos"
+                className={cn(
+                  buttonVariants({
+                    className:
+                      "h-11 w-full bg-red-600 text-base font-semibold text-white hover:bg-red-700 focus-visible:ring-red-500/30",
+                  })
+                )}
+              >
                 Seguir comprando
-              </Button>
+              </Link>
             </div>
           </section>
         </div>

@@ -6,6 +6,12 @@ import {
   normalizeCheckoutPayload,
 } from "@/lib/checkout";
 import {
+  calculateDistanceKm,
+  geocodeUruguayAddress,
+  getStoreCoordinates,
+} from "@/lib/shipping";
+import { getShippingRule } from "@/lib/shipping-pricing";
+import {
   createCheckoutProPreference,
   getCheckoutRedirectUrl,
   isMercadoPagoConfigured,
@@ -325,7 +331,7 @@ export async function POST(request: NextRequest) {
   const [{ data: storeConfigRow }, { data: variants, error: variantsError }] = await Promise.all([
     supabase
       .from("store_config")
-      .select("store_name, shipping_fixed_cost, free_shipping_threshold")
+      .select("store_name")
       .limit(1)
       .maybeSingle(),
     supabase
@@ -416,19 +422,35 @@ export async function POST(request: NextRequest) {
   }
 
   const subtotal = orderLines.reduce((total, line) => total + line.unitPrice * line.quantity, 0);
+  const storeCoordinates = getStoreCoordinates();
+  const geocodeResult =
+    payload.deliveryMethod === "shipping"
+      ? await geocodeUruguayAddress({
+          address: payload.customer.address,
+          city: payload.customer.city,
+        })
+      : { coordinates: null, source: "failed" as const };
+  const geocodeSource = payload.deliveryMethod === "shipping" ? geocodeResult.source : null;
+  const distanceKm =
+    payload.deliveryMethod === "shipping" && geocodeResult.coordinates
+      ? calculateDistanceKm(storeCoordinates, geocodeResult.coordinates)
+      : null;
   const shippingCost = getShippingCost({
     deliveryMethod: payload.deliveryMethod,
-    subtotal,
-    storeConfig: {
-      shippingFixedCost: Number(storeConfigRow?.shipping_fixed_cost ?? 0),
-      freeShippingThreshold:
-        storeConfigRow?.free_shipping_threshold === null ||
-        storeConfigRow?.free_shipping_threshold === undefined
-          ? null
-          : Number(storeConfigRow.free_shipping_threshold),
-    },
+    distanceKm,
   });
   const total = subtotal + shippingCost;
+  const shippingRule = getShippingRule(distanceKm, payload.deliveryMethod);
+
+  if (payload.deliveryMethod === "shipping" && geocodeSource !== "nominatim") {
+    console.warn("Checkout shipping geocoding fallback used", {
+      requestId,
+      userId: user.id,
+      orderAddress: payload.customer.address,
+      orderCity: payload.customer.city,
+      geocodeSource,
+    });
+  }
 
   const shippingAddress: Json = {
     full_name: payload.customer.fullName,
@@ -437,6 +459,20 @@ export async function POST(request: NextRequest) {
     address: payload.customer.address || null,
     city: payload.customer.city || null,
     notes: payload.customer.notes || null,
+    coordinates: geocodeResult.coordinates
+      ? {
+          lat: geocodeResult.coordinates.latitude,
+          lng: geocodeResult.coordinates.longitude,
+        }
+      : null,
+    store_coordinates: {
+      lat: storeCoordinates.latitude,
+      lng: storeCoordinates.longitude,
+    },
+    distance_km: distanceKm,
+    geocode_source: geocodeSource,
+    shipping_rule: shippingRule,
+    shipping_price_uyu: shippingCost,
   };
 
   const { data: order, error: orderError } = await supabase
@@ -471,6 +507,8 @@ export async function POST(request: NextRequest) {
     deliveryMethod: payload.deliveryMethod,
     subtotal,
     shippingCost,
+    distanceKm,
+    geocodeSource,
     total,
     lineItems: orderLines.length,
   });

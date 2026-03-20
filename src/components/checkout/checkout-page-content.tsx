@@ -12,7 +12,8 @@ import {
   Truck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import {
   Card,
   CardContent,
@@ -24,14 +25,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { PageContainer } from "@/components/layout/page-container";
+import { URUGUAY_CITY_NAMES, isUruguayCity } from "@/lib/checkout-cities";
 import {
   canOfferPickup,
   checkoutPayloadSchema,
   getShippingCost,
-  type CheckoutStoreConfig,
   type DeliveryMethod,
+  type CheckoutStoreConfig,
 } from "@/lib/checkout";
 import { getOrderStatusMeta, getPaymentStatusMeta } from "@/lib/orders";
+import { SHIPPING_BASE_UYU } from "@/lib/shipping-pricing";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/currency";
 import { useCart } from "@/stores/cart-store";
@@ -61,6 +65,13 @@ type CheckoutApiSuccess = {
 
 type CheckoutFieldErrors = Partial<Record<string, string>>;
 
+type ShippingQuote = {
+  shippingCost: number;
+  distanceKm: number | null;
+  geocodeSource: string | null;
+  shippingRule: string;
+};
+
 type CheckoutPaymentState = "paid" | "pending" | "failure";
 
 type CheckoutPaymentStateDetail =
@@ -88,6 +99,10 @@ type CheckoutOrderStatus = {
 const PENDING_CHECKOUT_STORAGE_KEY = "patriayvida-pending-checkout";
 const RETURN_STATUS_POLL_MS = 2500;
 const RETURN_STATUS_MAX_ATTEMPTS = 7;
+const primaryCtaClass =
+  "h-11 w-full bg-red-600 text-base font-semibold text-white hover:bg-red-700 focus-visible:ring-red-500/30";
+const secondaryCtaClass =
+  "h-11 w-full border-slate-700 bg-transparent text-base font-semibold text-slate-200 hover:border-red-700 hover:bg-red-700 hover:text-white";
 
 export function CheckoutPageContent({
   userEmail,
@@ -105,11 +120,14 @@ export function CheckoutPageContent({
   const [email, setEmail] = useState(userEmail);
   const [phone, setPhone] = useState(profile.phone);
   const [address, setAddress] = useState(profile.address);
-  const [city, setCity] = useState(profile.city);
+  const [city, setCity] = useState(isUruguayCity(profile.city) ? profile.city : "");
   const [notes, setNotes] = useState("");
   const [fieldErrors, setFieldErrors] = useState<CheckoutFieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
+  const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
+  const [shippingQuoteError, setShippingQuoteError] = useState<string | null>(null);
   const resolvedReturnOrderId = returnOrderId ?? orderReference;
   const hasCheckoutReturn = Boolean(resolvedReturnOrderId || checkoutStatus || paymentId);
   const [returnOrderStatus, setReturnOrderStatus] = useState<CheckoutOrderStatus | null>(null);
@@ -124,16 +142,89 @@ export function CheckoutPageContent({
   const [returnPollCount, setReturnPollCount] = useState(0);
   const [cartClearedForPaidOrder, setCartClearedForPaidOrder] = useState(false);
 
-  const shippingCost = useMemo(
-    () =>
-      getShippingCost({
-        deliveryMethod,
-        subtotal,
-        storeConfig,
-      }),
-    [deliveryMethod, storeConfig, subtotal]
-  );
+  const shippingCost = useMemo(() => {
+    if (deliveryMethod === "pickup") {
+      return 0;
+    }
+
+    if (shippingQuote) {
+      return shippingQuote.shippingCost;
+    }
+
+    return getShippingCost({
+      deliveryMethod,
+      distanceKm: null,
+    });
+  }, [deliveryMethod, shippingQuote]);
   const total = subtotal + shippingCost;
+
+  useEffect(() => {
+    if (deliveryMethod !== "shipping") {
+      setShippingQuote(null);
+      setShippingQuoteError(null);
+      setShippingQuoteLoading(false);
+      return;
+    }
+
+    if (!city || !address.trim()) {
+      setShippingQuote(null);
+      setShippingQuoteError(null);
+      setShippingQuoteLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      setShippingQuoteLoading(true);
+
+      void fetch("/api/checkout/shipping-quote", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deliveryMethod,
+          address,
+          city,
+        }),
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          const data = (await response.json().catch(() => null)) as
+            | (ShippingQuote & { error?: string })
+            | null;
+
+          if (!response.ok || !data || typeof data.shippingCost !== "number") {
+            setShippingQuote(null);
+            setShippingQuoteError(
+              data?.error ?? "No pudimos calcular la distancia exacta. Mostramos envio base."
+            );
+            return;
+          }
+
+          setShippingQuote(data);
+          setShippingQuoteError(null);
+        })
+        .catch(() => {
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          setShippingQuote(null);
+          setShippingQuoteError("No pudimos calcular la distancia exacta. Mostramos envio base.");
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setShippingQuoteLoading(false);
+          }
+        });
+    }, 450);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [address, city, deliveryMethod]);
 
   useEffect(() => {
     if (!hasCheckoutReturn || !resolvedReturnOrderId) {
@@ -303,7 +394,7 @@ export function CheckoutPageContent({
 
   if (!isHydrated) {
     return (
-      <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-5xl items-center px-4 py-10">
+      <PageContainer className="flex min-h-[calc(100vh-8rem)] items-center py-10">
         <Card className="w-full border-slate-800 bg-slate-950/60 py-0 shadow-[0_24px_90px_rgba(10,15,30,0.5)]">
           <CardHeader className="gap-4 border-b border-slate-800 px-6 py-6 sm:px-8 sm:py-8">
             <Badge className="w-fit bg-slate-800 text-slate-200">Preparando tu compra</Badge>
@@ -315,7 +406,7 @@ export function CheckoutPageContent({
             </CardDescription>
           </CardHeader>
         </Card>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -340,7 +431,7 @@ export function CheckoutPageContent({
 
   if (cart.items.length === 0) {
     return (
-      <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-4xl items-center px-4 py-10">
+      <PageContainer className="flex min-h-[calc(100vh-8rem)] items-center py-10">
         <Card className="w-full border-slate-800 bg-slate-950/60 py-0 shadow-[0_24px_90px_rgba(10,15,30,0.5)]">
           <CardHeader className="gap-4 border-b border-slate-800 px-6 py-6 sm:px-8 sm:py-8">
               <Badge className="w-fit bg-slate-800 text-slate-200">Carrito vacío</Badge>
@@ -367,14 +458,14 @@ export function CheckoutPageContent({
             </div>
           </CardFooter>
         </Card>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
     <div className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(190,24,44,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(234,179,8,0.09),transparent_20%)]" />
-      <div className="relative z-10 mx-auto flex max-w-7xl flex-col gap-8 px-4 py-8 lg:flex-row lg:items-start">
+      <PageContainer className="relative z-10 flex flex-col gap-8 py-8 lg:flex-row lg:items-start">
         <section className="flex min-w-0 flex-1 flex-col gap-6">
           <div className="flex flex-col gap-4 rounded-[2rem] border border-slate-800 bg-slate-950/60 p-6 shadow-[0_24px_90px_rgba(10,15,30,0.45)] sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -481,13 +572,12 @@ export function CheckoutPageContent({
                         error={fieldErrors["customer.address"]}
                         placeholder="Calle, número, apto"
                       />
-                      <Field
+                      <CitySelectField
                         id="city"
                         label="Ciudad"
                         value={city}
                         onChange={setCity}
                         error={fieldErrors["customer.city"]}
-                        placeholder="Montevideo"
                       />
                     </div>
                   )}
@@ -574,6 +664,17 @@ export function CheckoutPageContent({
                     label={deliveryMethod === "pickup" ? "Retiro" : "Envío"}
                     value={shippingCost === 0 ? "Gratis" : formatPrice(shippingCost)}
                   />
+                  {deliveryMethod === "shipping" ? (
+                    <p className="text-xs text-slate-400">
+                      {shippingQuoteLoading
+                        ? "Calculando distancia..."
+                        : shippingQuote && shippingQuote.distanceKm !== null
+                          ? `Distancia estimada: ${shippingQuote.distanceKm.toFixed(2)} km.`
+                          : shippingQuoteError
+                            ? `Sin geocodificación exacta: se aplica envio base (${formatPrice(SHIPPING_BASE_UYU)}).`
+                            : "Completá direccion y ciudad para estimar distancia."}
+                    </p>
+                  ) : null}
                   <Separator className="bg-slate-800" />
                   <SummaryRow label="Total" value={formatPrice(total)} prominent />
                 </CardContent>
@@ -588,7 +689,7 @@ export function CheckoutPageContent({
                   <ActionLink
                     href="/productos"
                     variant="outline"
-                    className="w-full border-slate-700 bg-transparent text-slate-200 hover:bg-slate-900"
+                    className={secondaryCtaClass}
                   >
                     Seguir comprando
                   </ActionLink>
@@ -597,7 +698,7 @@ export function CheckoutPageContent({
             </aside>
           </form>
         </section>
-      </div>
+      </PageContainer>
     </div>
   );
 }
@@ -635,6 +736,47 @@ function Field({
           error ? "border-red-500/60 focus:ring-red-500/20" : ""
         )}
       />
+      {error ? <p className="mt-2 text-xs text-red-300">{error}</p> : null}
+    </div>
+  );
+}
+
+function CitySelectField({
+  id,
+  label,
+  value,
+  onChange,
+  error,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+}) {
+  return (
+    <div>
+      <Label htmlFor={id} className="mb-2 block text-sm font-medium text-slate-100">
+        {label}
+      </Label>
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={cn(
+          "h-11 w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 text-slate-100 outline-none transition-colors focus:border-red-500 focus:ring-2 focus:ring-red-500/20",
+          error ? "border-red-500/60" : ""
+        )}
+      >
+        <option value="" className="bg-slate-900 text-slate-400">
+          Selecciona una ciudad
+        </option>
+        {URUGUAY_CITY_NAMES.map((cityName) => (
+          <option key={cityName} value={cityName} className="bg-slate-900 text-slate-100">
+            {cityName}
+          </option>
+        ))}
+      </select>
       {error ? <p className="mt-2 text-xs text-red-300">{error}</p> : null}
     </div>
   );
@@ -815,7 +957,7 @@ function CheckoutReturnView({
   return (
     <div className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(190,24,44,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(234,179,8,0.09),transparent_20%)]" />
-      <div className="relative z-10 mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10">
+      <PageContainer className="relative z-10 flex flex-col gap-6 py-8 sm:py-10">
         <Card className="border-slate-800 bg-slate-950/65 py-0 shadow-[0_24px_90px_rgba(10,15,30,0.45)]">
           <CardHeader className="gap-4 border-b border-slate-800 px-6 py-6 sm:px-8 sm:py-8">
             <Badge className="w-fit bg-red-600/90 text-white">Estado del pedido</Badge>
@@ -876,7 +1018,7 @@ function CheckoutReturnView({
             </div>
           </CardContent>
         </Card>
-      </div>
+      </PageContainer>
     </div>
   );
 }
@@ -934,14 +1076,14 @@ function ReturnActions({
         <CardFooter className="flex flex-col gap-4 border-slate-800 bg-slate-950/80 px-6 py-6 sm:px-8 sm:py-8">
           <ActionLink
             href={`/cuenta/pedidos/${order.id}`}
-            className="w-full bg-red-600 text-white hover:bg-red-700"
+            className={primaryCtaClass}
           >
             Ver detalle del pedido
           </ActionLink>
           <ActionLink
             href="/productos"
             variant="outline"
-            className="w-full border-slate-700 bg-transparent text-slate-200 hover:bg-slate-900"
+            className={secondaryCtaClass}
           >
             Seguir comprando
           </ActionLink>
@@ -986,7 +1128,7 @@ function ReturnActions({
       <CardFooter className="flex flex-col gap-4 border-slate-800 bg-slate-950/80 px-6 py-6 sm:px-8 sm:py-8">
         <ActionLink
           href={`/cuenta/pedidos/${order.id}`}
-          className="w-full bg-red-600 text-white hover:bg-red-700"
+          className={primaryCtaClass}
         >
           Ver detalle del pedido
         </ActionLink>

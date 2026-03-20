@@ -1,4 +1,6 @@
 import { CART_QUANTITY_CAP } from "@/lib/cart";
+import { isUruguayCity } from "@/lib/checkout-cities";
+import { getShippingAmount } from "@/lib/shipping-pricing";
 import { z } from "zod";
 
 export const deliveryMethodSchema = z.enum(["shipping", "pickup"]);
@@ -8,7 +10,13 @@ const checkoutCustomerSchema = z.object({
   email: z.email("Ingresá un email válido.").trim(),
   phone: z.string().trim().min(6, "Ingresá un teléfono de contacto."),
   address: z.string().trim().max(160).optional().default(""),
-  city: z.string().trim().max(80).optional().default(""),
+  city: z
+    .string()
+    .trim()
+    .max(80)
+    .refine((value) => !value || isUruguayCity(value), "Selecciona una ciudad valida de Uruguay.")
+    .optional()
+    .default(""),
   notes: z.string().trim().max(300).optional().default(""),
 });
 
@@ -86,24 +94,12 @@ export function normalizeCheckoutPayload(payload: CheckoutPayload): CheckoutPayl
 
 export function getShippingCost({
   deliveryMethod,
-  subtotal,
-  storeConfig,
+  distanceKm,
 }: {
   deliveryMethod: DeliveryMethod;
-  subtotal: number;
-  storeConfig: Pick<CheckoutStoreConfig, "shippingFixedCost" | "freeShippingThreshold">;
+  distanceKm: number | null;
 }): number {
-  if (deliveryMethod === "pickup") {
-    return 0;
-  }
-
-  const freeShippingThreshold = storeConfig.freeShippingThreshold;
-
-  if (freeShippingThreshold !== null && subtotal >= freeShippingThreshold) {
-    return 0;
-  }
-
-  return storeConfig.shippingFixedCost;
+  return getShippingAmount(distanceKm, deliveryMethod);
 }
 
 export function canOfferPickup(storeConfig: Pick<CheckoutStoreConfig, "pickupAddress">): boolean {

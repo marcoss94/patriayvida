@@ -1,19 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { Check, Minus, Plus, ShoppingBag } from "lucide-react";
+import { Loader2, Minus, Plus, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCart } from "@/stores/cart-store";
+import { useCartPreviewStore } from "@/stores/cart-preview-store";
+import { CartPreviewSheet } from "@/components/cart/cart-preview-sheet";
 import {
   getCartLineMaxQuantity,
   sanitizeCartQuantity,
 } from "@/lib/cart";
 import {
   formatPrice,
-  formatStock,
   hasStock,
 } from "@/lib/utils/currency";
 
@@ -34,21 +34,27 @@ type ProductPurchasePanelProps = {
     imageUrl: string | null;
   };
   variants: PurchaseVariant[];
+  description?: string | null;
 };
 
 type Notice = {
-  tone: "error" | "success";
+  tone: "error";
   message: string;
 };
+
+const ADD_TO_CART_DELAY_MS = 700;
 
 export function ProductPurchasePanel({
   product,
   variants,
+  description,
 }: ProductPurchasePanelProps) {
   const { addItem, isHydrated } = useCart();
+  const openCartPreview = useCartPreviewStore((state) => state.openForVariant);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
 
   const selectedVariant = useMemo(
     () => variants.find((variant) => variant.id === selectedVariantId) ?? null,
@@ -75,7 +81,7 @@ export function ProductPurchasePanel({
     setNotice(null);
   }
 
-  function handleAddToCart() {
+  async function handleAddToCart() {
     if (!selectedVariant) {
       setNotice({
         tone: "error",
@@ -92,6 +98,12 @@ export function ProductPurchasePanel({
       return;
     }
 
+    setIsAdding(true);
+
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, ADD_TO_CART_DELAY_MS);
+    });
+
     addItem({
       productId: product.id,
       variantId: selectedVariant.id,
@@ -105,10 +117,9 @@ export function ProductPurchasePanel({
       stock: selectedVariant.stock,
     });
 
-    setNotice({
-      tone: "success",
-      message: `${product.name} (${selectedVariant.size}) se agregó al carrito.`,
-    });
+    setNotice(null);
+    openCartPreview(selectedVariant.id);
+    setIsAdding(false);
   }
 
   const hasAvailableVariants = variants.some((variant) => hasStock(variant.stock));
@@ -126,7 +137,7 @@ export function ProductPurchasePanel({
           </Badge>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
           {variants.map((variant) => {
             const available = hasStock(variant.stock);
             const selected = selectedVariantId === variant.id;
@@ -142,19 +153,11 @@ export function ProductPurchasePanel({
                 className={cnPurchaseOption({ available, selected })}
               >
                 <span>{variant.size}</span>
-                <span className="text-[0.65rem] font-medium uppercase tracking-[0.22em] text-slate-400">
-                  {available ? "Stock" : "Agotado"}
-                </span>
               </button>
             );
           })}
         </div>
 
-        <div className="min-h-5 text-sm text-slate-400">
-          {selectedVariant
-            ? formatStock(selectedVariant.stock)
-            : "Seleccioná un talle para habilitar la compra."}
-        </div>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -218,39 +221,28 @@ export function ProductPurchasePanel({
           type="button"
           size="lg"
           onClick={handleAddToCart}
-          disabled={!isHydrated || !hasAvailableVariants}
+          disabled={!isHydrated || !hasAvailableVariants || isAdding}
           className="h-12 w-full bg-red-600 text-base font-semibold text-white hover:bg-red-700 disabled:bg-slate-800 disabled:text-slate-500"
         >
-          <ShoppingBag data-icon="inline-start" />
+          {isAdding ? (
+            <Loader2 data-icon="inline-start" className="animate-spin" />
+          ) : (
+            <ShoppingBag data-icon="inline-start" />
+          )}
           {!isHydrated
             ? "Preparando carrito"
-            : hasAvailableVariants
+            : isAdding
+              ? "Agregando..."
+              : hasAvailableVariants
               ? "Agregar al carrito"
               : "Sin stock disponible"}
         </Button>
 
         {notice ? (
           <div
-            className={
-              notice.tone === "success"
-                ? "rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100"
-                : "rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100"
-            }
+            className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100"
           >
-            <div className="flex items-start gap-3">
-              {notice.tone === "success" ? <Check className="mt-0.5 size-4" /> : null}
-              <div className="flex flex-col gap-1">
-                <span>{notice.message}</span>
-                {notice.tone === "success" ? (
-                  <Link
-                    href="/carrito"
-                    className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200 transition-colors hover:text-white"
-                  >
-                    Ir al carrito
-                  </Link>
-                ) : null}
-              </div>
-            </div>
+            <span>{notice.message}</span>
           </div>
         ) : null}
 
@@ -259,7 +251,17 @@ export function ProductPurchasePanel({
             Este producto no tiene variantes disponibles en este momento.
           </p>
         ) : null}
+
+        {description ? (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/30 px-4 py-4">
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-slate-300">
+              Descripción
+            </h3>
+            <p className="text-sm leading-relaxed text-slate-300">{description}</p>
+          </div>
+        ) : null}
       </div>
+      <CartPreviewSheet />
     </div>
   );
 }
@@ -272,12 +274,12 @@ function cnPurchaseOption({
   selected: boolean;
 }): string {
   if (!available) {
-    return "flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-center font-semibold text-slate-600 line-through";
+    return "flex h-11 cursor-not-allowed items-center justify-center rounded-lg border border-slate-800 bg-slate-950/70 px-2 text-center text-sm font-semibold text-slate-600 line-through";
   }
 
   if (selected) {
-    return "flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border border-red-500 bg-red-500/12 px-4 py-3 text-center font-semibold text-white shadow-[0_0_22px_rgba(204,41,54,0.18)]";
+    return "flex h-11 cursor-pointer items-center justify-center rounded-lg border border-red-500 bg-red-500/12 px-2 text-center text-sm font-semibold text-white shadow-[0_0_16px_rgba(204,41,54,0.18)] outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950";
   }
 
-  return "flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border border-slate-700 bg-slate-900/55 px-4 py-3 text-center font-semibold text-slate-100 transition-all hover:border-red-500/70 hover:bg-slate-800/80";
+  return "flex h-11 cursor-pointer items-center justify-center rounded-lg border border-slate-700 bg-slate-900/55 px-2 text-center text-sm font-semibold text-slate-100 outline-none transition-all hover:border-red-500/70 hover:bg-slate-800/80 focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950";
 }

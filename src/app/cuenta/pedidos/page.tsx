@@ -3,7 +3,7 @@ import { Package2, ReceiptText } from "lucide-react";
 import { OrderStatusTabs } from "@/components/orders/order-status-tabs";
 import { PaymentStatusBadge } from "@/components/account/payment-status-badge";
 import { OrderStatusBadge } from "@/components/account/order-status-badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import {
   BUSINESS_ORDER_STATUSES,
   getDeliveryMethodLabel,
@@ -16,6 +16,7 @@ import {
   type OrderRow,
 } from "@/lib/orders";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/currency";
 
 const ORDER_STATUS_TABS = [
@@ -143,9 +144,12 @@ export default async function PedidosPage({ searchParams }: UserOrdersPageProps)
             Cuando completes una compra, acá vas a encontrar el estado, el total y el detalle de cada pedido.
           </p>
           <div className="mt-5">
-            <Button render={<Link href="/productos" />} className="bg-red-600 text-white hover:bg-red-700">
+            <Link
+              href="/productos"
+              className={cn(buttonVariants({ className: "bg-red-600 text-white hover:bg-red-700" }))}
+            >
               Explorar productos
-            </Button>
+            </Link>
           </div>
         </section>
       ) : filteredOrders.length === 0 ? (
@@ -197,13 +201,18 @@ export default async function PedidosPage({ searchParams }: UserOrdersPageProps)
                       {order.itemCount}
                     </td>
                     <td className="px-4 py-4 text-right align-top">
-                      <Button
-                        size="sm"
-                        render={<Link href={`/cuenta/pedidos/${order.id}`} />}
-                        className="bg-red-600 text-white hover:bg-red-700"
+                      <Link
+                        href={`/cuenta/pedidos/${order.id}`}
+                        className={cn(
+                          buttonVariants({
+                            size: "sm",
+                            className:
+                              "bg-red-600 font-semibold text-white hover:bg-red-700 focus-visible:ring-red-500/30",
+                          })
+                        )}
                       >
                         Ver detalle
-                      </Button>
+                      </Link>
                     </td>
                   </tr>
                 ))}

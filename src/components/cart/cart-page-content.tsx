@@ -12,8 +12,10 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { PageContainer } from "@/components/layout/page-container";
 import { useCart } from "@/stores/cart-store";
 import {
   getCartItemCount,
@@ -21,14 +23,22 @@ import {
   sanitizeCartQuantity,
 } from "@/lib/cart";
 import { formatPrice, formatStock } from "@/lib/utils/currency";
+import { cn } from "@/lib/utils";
+
+const primaryCtaClass =
+  "h-11 bg-red-600 text-base font-semibold text-white hover:bg-red-700 focus-visible:ring-red-500/30";
+const secondaryCtaClass =
+  "h-11 border-slate-700 bg-transparent text-base font-semibold text-slate-200 hover:border-slate-500 hover:bg-red-700 hover:text-white";
+const destructiveCtaClass =
+  "h-11 border-red-500/30 bg-red-500/10 text-base font-semibold text-red-100 hover:border-red-700 hover:bg-red-700 hover:text-white";
 
 export function CartPageContent() {
   const { cart, clearItems, isHydrated, removeItem, subtotal, updateQuantity } = useCart();
 
   if (!isHydrated) {
     return (
-      <div className="mx-auto flex min-h-[calc(100vh-10rem)] max-w-3xl items-center px-4 py-10">
-        <Card className="w-full border-slate-800 bg-slate-950/55 py-0 shadow-[0_20px_80px_rgba(10,15,30,0.45)]">
+      <PageContainer className="flex min-h-[calc(100vh-10rem)] items-center py-10">
+        <Card className="mx-auto w-full max-w-3xl border-slate-800 bg-slate-950/55 py-0 shadow-[0_20px_80px_rgba(10,15,30,0.45)]">
           <CardHeader className="gap-3 border-b border-slate-800 px-6 pt-6 pb-6 sm:px-7">
             <Badge className="bg-slate-800 text-slate-200">Cargando</Badge>
             <CardTitle className="text-3xl font-bold text-white">
@@ -39,16 +49,19 @@ export function CartPageContent() {
             </CardDescription>
           </CardHeader>
         </Card>
-      </div>
+      </PageContainer>
     );
   }
 
   if (cart.items.length === 0) {
     return (
-      <div className="mx-auto flex min-h-[calc(100vh-10rem)] max-w-3xl items-center px-4 py-10">
-        <Card className="w-full border-slate-800 bg-slate-950/55 py-0 shadow-[0_20px_80px_rgba(10,15,30,0.45)]">
-          <CardHeader className="gap-3 border-b border-slate-800 px-6 pt-6 pb-6 sm:px-7">
-            <Badge className="bg-slate-800 text-slate-200">Carrito vacío</Badge>
+      <PageContainer className="flex min-h-[calc(100vh-10rem)] items-center py-10">
+        <Card className="mx-auto w-full max-w-3xl border-slate-800 bg-slate-950/55 py-0 shadow-[0_20px_80px_rgba(10,15,30,0.45)]">
+          <CardHeader className="items-center gap-4 border-b border-slate-800 px-6 pt-6 pb-6 text-center sm:px-7">
+            <div className="flex size-12 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900/70 text-slate-300">
+              <ShoppingBag className="size-5" />
+            </div>
+            <Badge className="w-fit bg-slate-800 text-slate-200">Carrito vacío</Badge>
             <CardTitle className="text-3xl font-bold text-white">
               Todavía no sumaste ninguna prenda a la trinchera.
             </CardTitle>
@@ -56,23 +69,31 @@ export function CartPageContent() {
               Volvé al catálogo, elegí tus prendas favoritas y armá tu pedido desde ahí.
             </CardDescription>
           </CardHeader>
-          <CardFooter className="justify-between gap-3 border-slate-800 bg-slate-950/70 px-6 py-5 sm:px-7">
+          <CardFooter className="flex-col gap-4 border-slate-800 bg-slate-950/70 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
             <span className="text-sm text-slate-500">Subtotal actual: {formatPrice(0)}</span>
-            <Button
-              render={<Link href="/productos" />}
-              className="bg-red-600 font-semibold text-white hover:bg-red-700"
-            >
-              <ShoppingBag data-icon="inline-start" />
-              Ir a productos
-            </Button>
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+              <Link
+                href="/"
+                className={cn(buttonVariants({ variant: "outline", className: `${secondaryCtaClass} w-full sm:w-auto` }))}
+              >
+                Volver al inicio
+              </Link>
+              <Link
+                href="/productos"
+                className={cn(buttonVariants({ className: `${primaryCtaClass} w-full sm:w-auto` }))}
+              >
+                <ShoppingBag data-icon="inline-start" />
+                Seguir comprando
+              </Link>
+            </div>
           </CardFooter>
         </Card>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-8 lg:flex-row lg:items-start">
+    <PageContainer className="flex flex-col gap-8 py-8 lg:flex-row lg:items-start">
       <section className="flex min-w-0 flex-1 flex-col gap-4">
         <div className="flex items-end justify-between gap-4">
           <div className="flex flex-col gap-2">
@@ -88,7 +109,7 @@ export function CartPageContent() {
             type="button"
             variant="destructive"
             onClick={clearItems}
-            className="border border-red-500/20"
+            className={destructiveCtaClass}
           >
             <Trash2 data-icon="inline-start" />
             Vaciar carrito
@@ -196,23 +217,31 @@ export function CartPageContent() {
           </CardContent>
 
           <CardFooter className="flex-col gap-3 border-slate-800 bg-slate-950/80 px-6 py-5 sm:px-7">
-            <Button
-              render={<Link href="/checkout" />}
-              className="h-11 w-full bg-red-600 text-base font-semibold text-white hover:bg-red-700"
+            <Link
+              href="/checkout"
+              className={cn(
+                buttonVariants({
+                  className: `${primaryCtaClass} w-full`,
+                })
+              )}
             >
               Finalizar compra
-            </Button>
-            <Button
-              render={<Link href="/productos" />}
-              variant="outline"
-              className="w-full border-slate-700 bg-transparent text-slate-200 hover:bg-slate-900"
+            </Link>
+            <Link
+              href="/productos"
+              className={cn(
+                buttonVariants({
+                  variant: "outline",
+                  className: `${secondaryCtaClass} hover:border-red-700 w-full`,
+                })
+              )}
             >
               Seguir comprando
-            </Button>
+            </Link>
           </CardFooter>
         </Card>
       </aside>
-    </div>
+    </PageContainer>
   );
 }
 

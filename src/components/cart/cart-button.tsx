@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/stores/cart-store";
@@ -20,14 +20,16 @@ export function CartButton({
   const showBadge = isHydrated && itemCount > 0;
 
   return (
-    <Button
-      render={<Link href="/carrito" />}
-      variant="ghost"
-      size="icon"
+    <Link
+      href="/carrito"
       aria-label={
         showBadge ? `Abrir carrito con ${itemCount} productos` : "Abrir carrito"
       }
       className={cn(
+        buttonVariants({
+          variant: "ghost",
+          size: "icon",
+        }),
         "relative cursor-pointer text-muted-foreground transition-colors duration-200 hover:text-foreground",
         buttonClassName
       )}
@@ -43,6 +45,6 @@ export function CartButton({
           {itemCount > 99 ? "99+" : itemCount}
         </Badge>
       ) : null}
-    </Button>
+    </Link>
   );
 }

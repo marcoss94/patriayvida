@@ -1,10 +1,11 @@
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { PageContainer } from '@/components/layout/page-container';
 import { ChevronRight, Home } from 'lucide-react';
 import { ProductPurchasePanel } from '@/components/cart/product-purchase-panel';
+import { ProductGallery } from '@/components/shop/product-gallery';
 import type { Metadata } from 'next';
 import type { ProductVariant } from '@/types/product';
 
@@ -100,10 +101,17 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
       return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
     });
 
-  const imageUrl = product.images?.[0] || '/placeholder-product.jpg';
+  const productImages =
+    Array.isArray(product.images) && product.images.length > 0
+      ? product.images.filter(
+          (image: unknown): image is string => typeof image === 'string' && image.length > 0
+        )
+      : [];
+  const imageUrl = productImages[0] || '/placeholder-product.jpg';
+  const galleryImages = productImages.length > 0 ? productImages : [imageUrl];
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageContainer className="py-8">
       {/* Breadcrumbs */}
       <nav className="mb-6 flex items-center gap-2 text-sm text-slate-400" aria-label="Breadcrumb">
         <Link href="/" className="hover:text-red-400">
@@ -122,21 +130,14 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
       </nav>
 
       {/* Product Detail Grid */}
-      <div className="grid gap-8 lg:grid-cols-2">
-        {/* Image Gallery (placeholder - just first image for now) */}
-        <div className="relative aspect-square overflow-hidden rounded-lg border border-slate-700/50 bg-slate-900/50">
-          <Image
-            src={imageUrl}
-            alt={product.name}
-            fill
-            priority
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            className="object-cover"
-          />
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,56%)_minmax(0,44%)] lg:items-start lg:gap-10">
+        {/* Sticky Gallery */}
+        <div className="lg:sticky lg:top-24 lg:self-start">
+          <ProductGallery images={galleryImages} productName={product.name} />
         </div>
 
         {/* Product Info */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* Category Badge */}
           <Badge variant="secondary" className="bg-slate-700/50 text-slate-300">
             {category.name}
@@ -144,13 +145,6 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
 
           {/* Product Name */}
           <h1 className="text-4xl font-bold text-white">{product.name}</h1>
-
-          {/* Description */}
-          {product.description && (
-            <p className="text-lg leading-relaxed text-slate-300">
-              {product.description}
-            </p>
-          )}
 
           <ProductPurchasePanel
             product={{
@@ -161,6 +155,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
               imageUrl,
             }}
             variants={sizes}
+            description={product.description ?? null}
           />
         </div>
       </div>
@@ -183,6 +178,6 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

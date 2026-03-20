@@ -4,6 +4,7 @@ import { OrderStatusTabs } from "@/components/orders/order-status-tabs";
 import { OrderStatusBadge } from "@/components/account/order-status-badge";
 import { PaymentStatusBadge } from "@/components/account/payment-status-badge";
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import {
   BUSINESS_ORDER_STATUSES,
   formatOrderDate,
@@ -17,6 +18,7 @@ import {
   type OrderRow,
 } from "@/lib/orders";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/currency";
 import type { Json } from "@/types/database";
 
@@ -298,9 +300,9 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
               Aplicar
             </Button>
             {hasActiveFilters ? (
-              <Button render={<Link href="/admin/pedidos" />} variant="outline">
+              <Link href="/admin/pedidos" className={cn(buttonVariants({ variant: "outline" }))}>
                 Limpiar
-              </Button>
+              </Link>
             ) : null}
           </div>
         </form>
@@ -364,13 +366,18 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
                       {order.itemCount}
                     </td>
                     <td className="px-4 py-4 text-right align-top">
-                      <Button
-                        size="sm"
-                        render={<Link href={`/admin/pedidos/${order.id}`} />}
-                        className="bg-red-600 text-white hover:bg-red-700"
-                      >
+                      <Link
+                        href={`/admin/pedidos/${order.id}`}
+                        className={cn(
+                           buttonVariants({
+                             size: "sm",
+                             className:
+                                "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500/30",
+                            })
+                          )}
+                        >
                         Ver detalle
-                      </Button>
+                      </Link>
                     </td>
                   </tr>
                 ))}
@@ -386,36 +393,34 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
             Página {currentPage} de {totalPages}
           </p>
           <div className="flex gap-2">
-            <Button
-              render={
-                <Link
-                  href={buildListPath({
-                    status: statusFilter,
-                    query,
-                    page: currentPage - 1,
-                  })}
-                />
-              }
-              variant="outline"
-              disabled={currentPage <= 1}
-            >
-              Anterior
-            </Button>
-            <Button
-              render={
-                <Link
-                  href={buildListPath({
-                    status: statusFilter,
-                    query,
-                    page: currentPage + 1,
-                  })}
-                />
-              }
-              variant="outline"
-              disabled={currentPage >= totalPages}
-            >
-              Siguiente
-            </Button>
+            {currentPage <= 1 ? (
+              <span className={cn(buttonVariants({ variant: "outline" }), "pointer-events-none opacity-50")}>Anterior</span>
+            ) : (
+              <Link
+                href={buildListPath({
+                  status: statusFilter,
+                  query,
+                  page: currentPage - 1,
+                })}
+                className={cn(buttonVariants({ variant: "outline" }))}
+              >
+                Anterior
+              </Link>
+            )}
+            {currentPage >= totalPages ? (
+              <span className={cn(buttonVariants({ variant: "outline" }), "pointer-events-none opacity-50")}>Siguiente</span>
+            ) : (
+              <Link
+                href={buildListPath({
+                  status: statusFilter,
+                  query,
+                  page: currentPage + 1,
+                })}
+                className={cn(buttonVariants({ variant: "outline" }))}
+              >
+                Siguiente
+              </Link>
+            )}
           </div>
         </section>
       ) : null}
