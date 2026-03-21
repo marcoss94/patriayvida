@@ -175,7 +175,7 @@ export default async function PedidoDetallePage({ params }: PedidoDetallePagePro
           <div className="mb-4 space-y-2">
             <div className="flex items-center gap-3 text-slate-100">
               <PackageSearch className="size-5 text-red-300" />
-              <h3 className="text-xl font-bold text-white">Items del pedido</h3>
+              <h3 className="text-xl font-bold text-white">Ítems del pedido</h3>
             </div>
             <p className="text-sm text-slate-400">Cantidades, variante y precio congelado al momento de la compra.</p>
           </div>

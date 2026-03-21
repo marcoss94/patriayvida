@@ -59,7 +59,7 @@ export default async function Home() {
         <PageContainer className="relative z-10 py-12 text-center sm:py-16 lg:py-20">
           <div className="mx-auto max-w-3xl">
             <div className="mb-6 inline-flex items-center rounded-full border border-cuba-red/30 bg-cuba-red/10 px-4 py-1.5 text-xs font-medium text-cuba-red-light">
-              Diseno con garra y actitud real
+              Diseño con garra y actitud real
             </div>
 
             <h1 className="text-balance text-5xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
@@ -106,7 +106,7 @@ export default async function Home() {
               <div className="rounded-xl border border-border/70 bg-card/40 px-4 py-3 backdrop-blur">
                 <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <Flame className="size-4 text-cuba-red" />
-                  Disenos con identidad
+                  Diseños con identidad
                 </p>
               </div>
               <div className="rounded-xl border border-border/70 bg-card/40 px-4 py-3 backdrop-blur">
@@ -138,7 +138,7 @@ export default async function Home() {
                 Productos en tendencia
               </h2>
               <p className="text-sm text-muted-foreground sm:text-base">
-                Seleccion actual de la tienda para que arranques con lo mejor.
+                Selección actual de la tienda para que arranques con lo mejor.
               </p>
             </div>
 
@@ -157,7 +157,7 @@ export default async function Home() {
 
           {featuredProducts.length === 0 ? (
             <div className="rounded-2xl border border-border/70 bg-card/40 px-6 py-10 text-center text-muted-foreground">
-              Todavia no hay productos publicados.
+              Todavía no hay productos publicados.
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">

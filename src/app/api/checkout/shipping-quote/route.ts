@@ -17,7 +17,7 @@ const shippingQuoteSchema = z.object({
     .string()
     .trim()
     .max(80)
-    .refine((value) => !value || isUruguayCity(value), "Selecciona una ciudad valida de Uruguay.")
+    .refine((value) => !value || isUruguayCity(value), "Seleccioná una ciudad válida de Uruguay.")
     .optional()
     .default(""),
 });
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Tenes que iniciar sesion para calcular envio." }, { status: 401 });
+    return NextResponse.json({ error: "Tenés que iniciar sesión para calcular el envío." }, { status: 401 });
   }
 
   const rawBody = await request.json().catch(() => null);
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Solicitud invalida." },
+      { error: parsed.error.issues[0]?.message ?? "Solicitud inválida." },
       { status: 400 }
     );
   }

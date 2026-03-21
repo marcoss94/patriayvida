@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
-  CreditCard,
   Loader2,
   MapPin,
   ShieldCheck,
@@ -105,6 +105,24 @@ const primaryCtaClass =
   "h-11 w-full text-base font-semibold";
 const secondaryCtaClass =
   "h-11 w-full border-slate-700 bg-transparent text-base font-semibold text-slate-200 hover:border-red-700 hover:bg-red-700 hover:text-white";
+const mercadoPagoButtonClass =
+  "relative h-12 w-full justify-center rounded-lg border border-[#007eb5] bg-[#009ee3] px-4 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(0,158,227,0.22)] transition-colors hover:border-[#006fa1] hover:bg-[#008fcd] focus-visible:border-[#36b8ef] focus-visible:ring-[#009ee3]/30 disabled:border-slate-800 disabled:bg-slate-800 disabled:text-slate-500 disabled:shadow-none";
+
+function getShippingQuoteHelperText(quote: ShippingQuote | null, loading: boolean, error: string | null) {
+  if (loading) {
+    return "Calculando distancia...";
+  }
+
+  if (quote && quote.distanceKm !== null) {
+    return `Estimado con ${quote.distanceKm.toFixed(2)} km hasta tu dirección.`;
+  }
+
+  if (error) {
+    return `Sin geocodificación exacta: aplicamos envío base (${formatPrice(SHIPPING_BASE_UYU)}).`;
+  }
+
+  return "Completá dirección y ciudad para estimar el envío.";
+}
 
 export function CheckoutPageContent({
   userEmail,
@@ -162,17 +180,27 @@ export function CheckoutPageContent({
 
   useEffect(() => {
     if (deliveryMethod !== "shipping") {
-      setShippingQuote(null);
-      setShippingQuoteError(null);
-      setShippingQuoteLoading(false);
-      return;
+      const resetId = window.setTimeout(() => {
+        setShippingQuote(null);
+        setShippingQuoteError(null);
+        setShippingQuoteLoading(false);
+      }, 0);
+
+      return () => {
+        window.clearTimeout(resetId);
+      };
     }
 
     if (!city || !address.trim()) {
-      setShippingQuote(null);
-      setShippingQuoteError(null);
-      setShippingQuoteLoading(false);
-      return;
+      const resetId = window.setTimeout(() => {
+        setShippingQuote(null);
+        setShippingQuoteError(null);
+        setShippingQuoteLoading(false);
+      }, 0);
+
+      return () => {
+        window.clearTimeout(resetId);
+      };
     }
 
     const controller = new AbortController();
@@ -199,7 +227,7 @@ export function CheckoutPageContent({
           if (!response.ok || !data || typeof data.shippingCost !== "number") {
             setShippingQuote(null);
             setShippingQuoteError(
-              data?.error ?? "No pudimos calcular la distancia exacta. Mostramos envio base."
+              data?.error ?? "No pudimos calcular la distancia exacta. Mostramos envío base."
             );
             return;
           }
@@ -213,7 +241,7 @@ export function CheckoutPageContent({
           }
 
           setShippingQuote(null);
-          setShippingQuoteError("No pudimos calcular la distancia exacta. Mostramos envio base.");
+          setShippingQuoteError("No pudimos calcular la distancia exacta. Mostramos envío base.");
         })
         .finally(() => {
           if (!controller.signal.aborted) {
@@ -328,13 +356,24 @@ export function CheckoutPageContent({
       return;
     }
 
-    clearItems();
-    clearPendingCheckoutOrderMarker();
-    setCartClearedForPaidOrder(true);
+    const clearId = window.setTimeout(() => {
+      clearItems();
+      clearPendingCheckoutOrderMarker();
+      setCartClearedForPaidOrder(true);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(clearId);
+    };
   }, [clearItems, isHydrated, returnOrderStatus]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (loading) {
+      return;
+    }
+
     setSubmitError(null);
     setFieldErrors({});
 
@@ -388,6 +427,7 @@ export function CheckoutPageContent({
       if (!response.ok || !data || !("initPoint" in data)) {
         const errorMessage = data && "error" in data ? data.error : undefined;
         setSubmitError(errorMessage ?? "No pudimos iniciar el checkout.");
+        setLoading(false);
         return;
       }
 
@@ -395,7 +435,6 @@ export function CheckoutPageContent({
       window.location.assign(data.initPoint);
     } catch {
       setSubmitError("Ocurrió un problema de red al intentar abrir Mercado Pago.");
-    } finally {
       setLoading(false);
     }
   }
@@ -621,19 +660,43 @@ export function CheckoutPageContent({
                     {submitError}
                   </div>
                 ) : null}
-                <Button
-                  type="submit"
-                  variant="brand"
-                  disabled={loading || cart.items.length === 0}
-                  className="h-12 w-full text-base font-semibold disabled:bg-slate-800 disabled:text-slate-500"
-                >
-                  {loading ? (
-                    <Loader2 className="animate-spin" data-icon="inline-start" />
-                  ) : (
-                    <CreditCard data-icon="inline-start" />
-                  )}
-                  {loading ? "Preparando pago..." : "Pagar con Mercado Pago"}
-                </Button>
+                <div className="w-full space-y-2">
+                  <Button
+                    type="submit"
+                    variant="brand"
+                    disabled={loading || cart.items.length === 0}
+                    className={mercadoPagoButtonClass}
+                    aria-describedby="mercado-pago-helper"
+                    aria-busy={loading}
+                  >
+                    <span className="flex items-center justify-center gap-3 text-center">
+                      <Image
+                        src="/mercado-pago.svg"
+                        alt=""
+                        aria-hidden="true"
+                        width={94}
+                        height={24}
+                        className="h-6 w-auto"
+                      />
+                      <span>{loading ? "Redirigiendo a Mercado Pago..." : "Pagar con Mercado Pago"}</span>
+                    </span>
+                    {loading ? (
+                      <Loader2
+                        className="absolute right-4 size-4 animate-spin text-white"
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                  </Button>
+                  <p
+                    id="mercado-pago-helper"
+                    aria-live="polite"
+                    className="text-center text-xs font-medium text-slate-400"
+                  >
+                    {loading
+                      ? "Te estamos redirigiendo al checkout seguro. No cierres esta ventana."
+                      : "Pagá de forma segura"}
+                  </p>
+                </div>
               </CardFooter>
             </Card>
 
@@ -681,20 +744,17 @@ export function CheckoutPageContent({
                       helper={
                         deliveryMethod === "pickup"
                           ? "Retirás sin costo adicional."
-                          : shippingQuoteLoading
-                            ? "Calculando distancia..."
-                            : shippingQuote && shippingQuote.distanceKm !== null
-                              ? `Estimado con ${shippingQuote.distanceKm.toFixed(2)} km (${shippingQuote.shippingRule}).`
-                              : shippingQuoteError
-                                ? `Sin geocodificación exacta: aplicamos envío base (${formatPrice(SHIPPING_BASE_UYU)}).`
-                                : "Completá dirección y ciudad para estimar el envío."
+                          : getShippingQuoteHelperText(
+                              shippingQuote,
+                              shippingQuoteLoading,
+                              shippingQuoteError
+                            )
                       }
                       boxed
                     />
                     <SummaryRow
                       label="Total"
                       value={formatPrice(total)}
-                      helper="Total estimado a pagar antes de ir a Mercado Pago."
                       prominent
                       boxed
                     />
@@ -705,7 +765,7 @@ export function CheckoutPageContent({
                   <div className="w-full rounded-2xl border border-slate-800 bg-slate-900/55 px-4 py-4">
                     <p className="font-semibold text-white">Pago seguro con Mercado Pago</p>
                     <p className="mt-2 text-sm text-slate-400">
-                      Vas a continuar en una ventana segura para completar el pago y volver después a tu pedido.
+                      Te redirigimos al checkout seguro de Mercado Pago para completar el pago y volver después a tu pedido.
                     </p>
                   </div>
                   <ActionLink
@@ -791,7 +851,7 @@ function CitySelectField({
         )}
       >
         <option value="" className="bg-slate-900 text-slate-400">
-          Selecciona una ciudad
+          Seleccioná una ciudad
         </option>
         {URUGUAY_CITY_NAMES.map((cityName) => (
           <option key={cityName} value={cityName} className="bg-slate-900 text-slate-100">

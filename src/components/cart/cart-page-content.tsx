@@ -152,7 +152,7 @@ export function CartPageContent() {
 
                       <div className="text-right">
                         <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                          Total linea
+                          Total línea
                         </p>
                         <p className="text-xl font-semibold text-white">
                           {formatPrice(item.unitPrice * item.quantity)}

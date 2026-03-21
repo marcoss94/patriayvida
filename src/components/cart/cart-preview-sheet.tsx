@@ -34,15 +34,15 @@ export function CartPreviewSheet() {
         className="w-full border-slate-800 bg-slate-950/98 text-slate-100 sm:max-w-md"
       >
         <SheetHeader className="border-b border-slate-800 pb-4">
-          <SheetTitle className="text-lg text-white">Ya esta en el carrito</SheetTitle>
+          <SheetTitle className="text-lg text-white">Ya está en el carrito</SheetTitle>
           <SheetDescription className="text-slate-400">
-            Revisa lo que sumaste y segui comprando cuando quieras.
+            Revisá lo que sumaste y seguí comprando cuando quieras.
           </SheetDescription>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-4 pb-2">
           {items.length === 0 ? (
-            <p className="py-6 text-sm text-slate-400">Tu carrito esta vacio.</p>
+            <p className="py-6 text-sm text-slate-400">Tu carrito está vacío.</p>
           ) : (
             <div className="space-y-3 py-4">
               {items.map((item) => {

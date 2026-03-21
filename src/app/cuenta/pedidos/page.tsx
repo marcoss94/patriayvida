@@ -118,7 +118,7 @@ export default async function PedidosPage({ searchParams }: UserOrdersPageProps)
               </p>
             </div>
             <div className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Items acumulados</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Ítems acumulados</p>
               <p className="mt-3 text-2xl font-bold text-white">
                 {filteredOrders.reduce((total, order) => total + order.itemCount, 0)}
               </p>
@@ -171,7 +171,7 @@ export default async function PedidosPage({ searchParams }: UserOrdersPageProps)
                   <th className="hidden px-4 py-3 text-left font-semibold md:table-cell">Pago</th>
                   <th className="hidden px-4 py-3 text-left font-semibold xl:table-cell">Entrega</th>
                   <th className="px-4 py-3 text-right font-semibold">Total</th>
-                  <th className="hidden px-4 py-3 text-right font-semibold lg:table-cell">Items</th>
+                  <th className="hidden px-4 py-3 text-right font-semibold lg:table-cell">Ítems</th>
                   <th className="px-4 py-3 text-right font-semibold">Acción</th>
                 </tr>
               </thead>

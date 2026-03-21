@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { URUGUAY_CITY_NAMES, isUruguayCity } from "@/lib/checkout-cities";
 
 interface ProfileFormProps {
   profile: {
@@ -28,7 +29,7 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
   const [fullName, setFullName] = useState(profile.full_name ?? "");
   const [phone, setPhone] = useState(profile.phone ?? "");
   const [address, setAddress] = useState(profile.address ?? "");
-  const [city, setCity] = useState(profile.city ?? "");
+  const [city, setCity] = useState(profile.city && isUruguayCity(profile.city) ? profile.city : "");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -144,14 +145,19 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
             <Label htmlFor="city" className="text-sm font-medium">
               Ciudad
             </Label>
-            <Input
+            <select
               id="city"
-              type="text"
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              placeholder="Montevideo"
-              className="rounded-lg border-border bg-background transition-colors duration-200 focus:border-primary focus:ring-primary"
-            />
+              className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground transition-colors duration-200 outline-none focus:border-primary focus:ring-3 focus:ring-primary/20"
+            >
+              <option value="">Seleccioná una ciudad</option>
+              {URUGUAY_CITY_NAMES.map((cityName) => (
+                <option key={cityName} value={cityName}>
+                  {cityName}
+                </option>
+              ))}
+            </select>
           </div>
         </CardContent>
         <CardFooter className="border-slate-800 bg-slate-950/80 px-6 py-5 sm:px-7">

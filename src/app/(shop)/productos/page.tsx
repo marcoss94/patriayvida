@@ -12,7 +12,7 @@ type ProductosPageProps = {
 
 export const metadata: Metadata = {
   title: 'Productos | Patria y Vida',
-  description: 'Descubre nuestra colección completa de remeras con diseños únicos. Calidad premium, envío a todo el país.',
+  description: 'Descubrí nuestra colección completa de remeras con diseños únicos. Calidad premium y envío a todo el país.',
 };
 
 async function ProductosCatalogo() {

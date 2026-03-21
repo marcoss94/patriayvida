@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 export const metadata: Metadata = {
   title: "Sobre nosotros | Patria y Vida",
   description:
-    "Conoce la historia, misión y valores detrás de Patria y Vida.",
+    "Conocé la historia, la misión y los valores detrás de Patria y Vida.",
 };
 
 export default function SobreNosotrosPage() {
@@ -21,11 +21,11 @@ export default function SobreNosotrosPage() {
               Sobre nosotros
             </p>
             <h1 className="text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-              Identidad cubana, energia uruguaya
+              Identidad cubana, energía uruguaya
             </h1>
             <p className="text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
               Somos una tienda creada para quienes usan la ropa como una forma
-              de decir quien son. Diseno, cultura y actitud en cada pieza.
+              de decir quiénes son. Diseño, cultura y actitud en cada pieza.
             </p>
           </div>
         </PageContainer>
@@ -34,32 +34,32 @@ export default function SobreNosotrosPage() {
       <PageContainer className="py-10 sm:py-14">
         <div className="grid gap-5 md:grid-cols-3">
           <article className="rounded-2xl border border-border/70 bg-card/50 p-6 backdrop-blur">
-            <h2 className="text-lg font-semibold text-foreground">Quienes somos</h2>
+            <h2 className="text-lg font-semibold text-foreground">Quiénes somos</h2>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               Un proyecto independiente nacido en Uruguay, inspirado por la
-              fuerza visual y cultural de Cuba. Combinamos produccion cuidada
-              con disenos que no pasan desapercibidos.
+              fuerza visual y cultural de Cuba. Combinamos producción cuidada
+              con diseños que no pasan desapercibidos.
             </p>
           </article>
 
           <article className="rounded-2xl border border-border/70 bg-card/50 p-6 backdrop-blur">
             <h2 className="text-lg font-semibold text-foreground">
-              Por que lo construimos
+              Por qué lo construimos
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               Porque faltaba una propuesta local con identidad fuerte y mensaje
               claro. Queremos que cada producto te represente de verdad, sin
-              formulas vacias.
+              fórmulas vacías.
             </p>
           </article>
 
           <article className="rounded-2xl border border-border/70 bg-card/50 p-6 backdrop-blur">
             <h2 className="text-lg font-semibold text-foreground">
-              Valores y mision
+              Valores y misión
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               Apostamos por autenticidad, calidad y respeto por la comunidad.
-              Nuestra mision es acercar productos con historia, caracter y una
+              Nuestra misión es acercar productos con historia, carácter y una
               experiencia de compra simple.
             </p>
           </article>
@@ -74,7 +74,7 @@ export default function SobreNosotrosPage() {
               })
             )}
           >
-            Ver catalogo
+            Ver catálogo
           </Link>
         </div>
       </PageContainer>

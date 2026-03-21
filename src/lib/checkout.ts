@@ -14,7 +14,7 @@ const checkoutCustomerSchema = z.object({
     .string()
     .trim()
     .max(80)
-    .refine((value) => !value || isUruguayCity(value), "Selecciona una ciudad valida de Uruguay.")
+    .refine((value) => !value || isUruguayCity(value), "Seleccioná una ciudad válida de Uruguay.")
     .optional()
     .default(""),
   notes: z.string().trim().max(300).optional().default(""),
@@ -127,7 +127,7 @@ export function buildMercadoPagoPreferenceItems(
   if (shippingCost > 0) {
     items.push({
       id: "shipping",
-      title: "Costo de envio",
+      title: "Costo de envío",
       description: "Entrega a domicilio",
       quantity: 1,
       unit_price: shippingCost,

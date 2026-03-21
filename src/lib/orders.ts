@@ -156,12 +156,12 @@ export function getPaymentStatusMeta(order: Pick<OrderRow, "status" | "mp_status
     case "merchant_order":
       return { label: "Pago conciliando", tone: "neutral" as const };
     default:
-      return { label: "Sin confirmacion", tone: "neutral" as const };
+      return { label: "Sin confirmación", tone: "neutral" as const };
   }
 }
 
 export function getDeliveryMethodLabel(deliveryMethod: OrderRow["delivery_method"]) {
-  return deliveryMethod === "shipping" ? "Envio" : "Retiro";
+  return deliveryMethod === "shipping" ? "Envío" : "Retiro";
 }
 
 export function parseShippingAddress(shippingAddress: Json | null): ShippingAddressSnapshot {

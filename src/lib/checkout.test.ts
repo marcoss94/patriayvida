@@ -29,7 +29,7 @@ describe("buildMercadoPagoPreferenceItems", () => {
       },
       {
         id: "shipping",
-        title: "Costo de envio",
+        title: "Costo de envío",
         description: "Entrega a domicilio",
         quantity: 1,
         unit_price: 180,

@@ -348,7 +348,7 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
                   <th className="hidden px-4 py-3 text-left font-semibold md:table-cell">Pago</th>
                   <th className="hidden px-4 py-3 text-left font-semibold xl:table-cell">Entrega</th>
                   <th className="px-4 py-3 text-right font-semibold">Total</th>
-                  <th className="hidden px-4 py-3 text-right font-semibold xl:table-cell">Items</th>
+                  <th className="hidden px-4 py-3 text-right font-semibold xl:table-cell">Ítems</th>
                   <th className="px-4 py-3 text-right font-semibold">Acción</th>
                 </tr>
               </thead>
@@ -383,7 +383,7 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
                         <p>{getDeliveryMethodLabel(order.delivery_method)}</p>
                         <p className="text-xs text-slate-500">
                           {order.shippingSummary ??
-                            (order.delivery_method === "pickup" ? "Retiro en punto acordado" : "Sin direccion")}
+                            (order.delivery_method === "pickup" ? "Retiro en punto acordado" : "Sin dirección")}
                         </p>
                       </div>
                     </td>
@@ -392,7 +392,7 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
                         <p>{formatPrice(order.total)}</p>
                         <div className="hidden space-y-1 text-xs font-normal text-slate-500 lg:block">
                           <p>Subt. {formatPrice(order.subtotal)}</p>
-                          <p>Envio {order.shippingCost === 0 ? "Gratis" : formatPrice(order.shippingCost)}</p>
+                          <p>Envío {order.shippingCost === 0 ? "Gratis" : formatPrice(order.shippingCost)}</p>
                         </div>
                       </div>
                     </td>
