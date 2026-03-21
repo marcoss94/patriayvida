@@ -668,24 +668,37 @@ export function CheckoutPageContent({
 
                   <Separator className="bg-slate-800" />
                   <SummaryRow label="Unidades" value={String(itemCount)} />
-                  <SummaryRow label="Subtotal" value={formatPrice(subtotal)} />
-                  <SummaryRow
-                    label={deliveryMethod === "pickup" ? "Retiro" : "Envío"}
-                    value={shippingCost === 0 ? "Gratis" : formatPrice(shippingCost)}
-                  />
-                  {deliveryMethod === "shipping" ? (
-                    <p className="text-xs text-slate-400">
-                      {shippingQuoteLoading
-                        ? "Calculando distancia..."
-                        : shippingQuote && shippingQuote.distanceKm !== null
-                          ? `Distancia estimada: ${shippingQuote.distanceKm.toFixed(2)} km.`
-                          : shippingQuoteError
-                            ? `Sin geocodificación exacta: se aplica envio base (${formatPrice(SHIPPING_BASE_UYU)}).`
-                            : "Completá direccion y ciudad para estimar distancia."}
-                    </p>
-                  ) : null}
-                  <Separator className="bg-slate-800" />
-                  <SummaryRow label="Total" value={formatPrice(total)} prominent />
+                  <div className="space-y-3">
+                    <SummaryRow
+                      label="Subtotal"
+                      value={formatPrice(subtotal)}
+                      helper="Productos en tu carrito."
+                      boxed
+                    />
+                    <SummaryRow
+                      label={deliveryMethod === "pickup" ? "Retiro" : "Envío"}
+                      value={shippingCost === 0 ? "Gratis" : formatPrice(shippingCost)}
+                      helper={
+                        deliveryMethod === "pickup"
+                          ? "Retirás sin costo adicional."
+                          : shippingQuoteLoading
+                            ? "Calculando distancia..."
+                            : shippingQuote && shippingQuote.distanceKm !== null
+                              ? `Estimado con ${shippingQuote.distanceKm.toFixed(2)} km (${shippingQuote.shippingRule}).`
+                              : shippingQuoteError
+                                ? `Sin geocodificación exacta: aplicamos envío base (${formatPrice(SHIPPING_BASE_UYU)}).`
+                                : "Completá dirección y ciudad para estimar el envío."
+                      }
+                      boxed
+                    />
+                    <SummaryRow
+                      label="Total"
+                      value={formatPrice(total)}
+                      helper="Total estimado a pagar antes de ir a Mercado Pago."
+                      prominent
+                      boxed
+                    />
+                  </div>
                 </CardContent>
 
                 <CardFooter className="flex flex-col gap-4 border-slate-800 bg-slate-950/80 px-6 py-6 text-sm text-slate-400 sm:px-8 sm:py-8">
@@ -822,15 +835,28 @@ function DeliveryMethodButton({
 function SummaryRow({
   label,
   value,
+  helper,
   prominent = false,
+  boxed = false,
 }: {
   label: string;
   value: string;
+  helper?: string;
   prominent?: boolean;
+  boxed?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <span className={prominent ? "text-base text-slate-300" : "text-sm text-slate-400"}>{label}</span>
+    <div
+      className={cn(
+        "flex items-center justify-between gap-4",
+        boxed ? "rounded-2xl border border-slate-800 bg-slate-900/55 px-4 py-4" : null,
+        prominent && boxed ? "border-slate-700 bg-slate-900/75" : null
+      )}
+    >
+      <div className="space-y-1">
+        <span className={prominent ? "text-base text-slate-300" : "text-sm text-slate-400"}>{label}</span>
+        {helper ? <p className="text-xs text-slate-500">{helper}</p> : null}
+      </div>
       <span className={prominent ? "text-2xl font-bold text-white" : "text-sm font-medium text-slate-100"}>{value}</span>
     </div>
   );

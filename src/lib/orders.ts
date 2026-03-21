@@ -31,6 +31,10 @@ type ShippingAddressSnapshot = {
   address: string | null;
   city: string | null;
   notes: string | null;
+  distanceKm: number | null;
+  geocodeSource: string | null;
+  shippingRule: string | null;
+  shippingPriceUyu: number | null;
 };
 
 function isRecord(value: Json | null): value is Record<string, Json | undefined> {
@@ -40,6 +44,11 @@ function isRecord(value: Json | null): value is Record<string, Json | undefined>
 function getStringField(record: Record<string, Json | undefined>, key: string) {
   const value = record[key];
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+function getNumberField(record: Record<string, Json | undefined>, key: string) {
+  const value = record[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 export function formatOrderReference(orderId: string) {
@@ -164,6 +173,10 @@ export function parseShippingAddress(shippingAddress: Json | null): ShippingAddr
       address: null,
       city: null,
       notes: null,
+      distanceKm: null,
+      geocodeSource: null,
+      shippingRule: null,
+      shippingPriceUyu: null,
     };
   }
 
@@ -174,7 +187,15 @@ export function parseShippingAddress(shippingAddress: Json | null): ShippingAddr
     address: getStringField(shippingAddress, "address"),
     city: getStringField(shippingAddress, "city"),
     notes: getStringField(shippingAddress, "notes"),
+    distanceKm: getNumberField(shippingAddress, "distance_km"),
+    geocodeSource: getStringField(shippingAddress, "geocode_source"),
+    shippingRule: getStringField(shippingAddress, "shipping_rule"),
+    shippingPriceUyu: getNumberField(shippingAddress, "shipping_price_uyu"),
   };
+}
+
+export function formatShippingAddressSummary(snapshot: Pick<ShippingAddressSnapshot, "address" | "city">) {
+  return [snapshot.address, snapshot.city].filter(Boolean).join(" · ") || null;
 }
 
 export function getOrderItemCount(items: Array<{ quantity: number }> | null | undefined) {

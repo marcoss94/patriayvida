@@ -12,6 +12,8 @@ export type MercadoPagoWebhookRouteDecision = {
   responseStatus: 200 | 202;
 };
 
+const MERCADOPAGO_RESOURCE_ID_PATTERN = /^\d{6,32}$/;
+
 function normalizeSignatureHash(value: string) {
   return value.trim().toLowerCase();
 }
@@ -82,10 +84,42 @@ export function normalizeMercadoPagoNotificationTopic(
   }
 }
 
+export function isMercadoPagoResourceId(value: string | null | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  return MERCADOPAGO_RESOURCE_ID_PATTERN.test(value.trim());
+}
+
+function hasUnverifiedWebhookCorrelationEvidence(params: {
+  topic: Exclude<MercadoPagoNotificationTopic, "unknown">;
+  resourceId: string | null | undefined;
+  notificationId: string | null | undefined;
+  requestId: string | null | undefined;
+  action: string | null | undefined;
+}) {
+  const resourceId = params.resourceId?.trim() ?? "";
+  const notificationId = params.notificationId?.trim() ?? "";
+  const requestId = params.requestId?.trim() ?? "";
+  const action = params.action?.trim().toLowerCase() ?? "";
+
+  return Boolean(
+    requestId ||
+      (notificationId && notificationId !== resourceId) ||
+      action.startsWith(`${params.topic}.`),
+  );
+}
+
 export function resolveMercadoPagoWebhookRouteDecision(params: {
+  topic: MercadoPagoNotificationTopic;
+  resourceId: string | null | undefined;
   hasResourceId: boolean;
   signatureOk: boolean;
   signatureMode: "enforced" | "skipped";
+  notificationId?: string | null;
+  requestId?: string | null;
+  action?: string | null;
 }) {
   if (!params.hasResourceId) {
     return {
@@ -108,6 +142,25 @@ export function resolveMercadoPagoWebhookRouteDecision(params: {
       shouldReconcile: true,
       verificationStatus: "verified",
       responseStatus: 200,
+    } satisfies MercadoPagoWebhookRouteDecision;
+  }
+
+  if (
+    params.topic === "unknown" ||
+    params.topic === "preference" ||
+    !isMercadoPagoResourceId(params.resourceId) ||
+    !hasUnverifiedWebhookCorrelationEvidence({
+      topic: params.topic,
+      resourceId: params.resourceId,
+      notificationId: params.notificationId,
+      requestId: params.requestId,
+      action: params.action,
+    })
+  ) {
+    return {
+      shouldReconcile: false,
+      verificationStatus: "unverified",
+      responseStatus: 202,
     } satisfies MercadoPagoWebhookRouteDecision;
   }
 

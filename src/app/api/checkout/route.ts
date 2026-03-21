@@ -6,6 +6,7 @@ import {
   getShippingCost,
   normalizeCheckoutPayload,
 } from "@/lib/checkout";
+import { RECENT_PENDING_ORDER_REUSE_WINDOW_MS, selectReusablePendingOrder } from "@/lib/checkout-retry";
 import {
   calculateDistanceKm,
   geocodeUruguayAddress,
@@ -34,6 +35,27 @@ type VariantRow = {
     base_price: number | string;
     is_active: boolean;
   };
+};
+
+type PendingOrderRow = {
+  id: string;
+  created_at: string;
+  delivery_method: string;
+  mp_payment_id: string | null;
+  mp_preference_id: string | null;
+  mp_status: string | null;
+  shipping_address: Json | null;
+  shipping_cost: number;
+  status: string;
+  subtotal: number;
+  total: number;
+};
+
+type PendingOrderItemRow = {
+  order_id: string;
+  quantity: number;
+  unit_price: number;
+  variant_id: string;
 };
 
 type MercadoPagoErrorDetails = {
@@ -476,90 +498,187 @@ export async function POST(request: NextRequest) {
     shipping_price_uyu: shippingCost,
   };
 
-  const { data: order, error: orderError } = await supabase
+  const recentPendingSince = new Date(Date.now() - RECENT_PENDING_ORDER_REUSE_WINDOW_MS).toISOString();
+  const { data: pendingOrders, error: pendingOrdersError } = await supabase
     .from("orders")
-    .insert({
-      user_id: user.id,
-      status: "pending",
+    .select(
+      "id, created_at, delivery_method, mp_payment_id, mp_preference_id, mp_status, shipping_address, shipping_cost, status, subtotal, total"
+    )
+    .eq("user_id", user.id)
+    .eq("status", "pending")
+    .gte("created_at", recentPendingSince)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (pendingOrdersError) {
+    console.warn("Checkout retry guard could not load pending orders", {
+      requestId,
+      userId: user.id,
+      error: pendingOrdersError,
+    });
+  }
+
+  const pendingOrderIds = ((pendingOrders ?? []) as PendingOrderRow[]).map((order) => order.id);
+  let pendingOrderItems: PendingOrderItemRow[] = [];
+
+  if (pendingOrderIds.length > 0) {
+    const { data: orderItemsData, error: pendingOrderItemsError } = await supabase
+      .from("order_items")
+      .select("order_id, quantity, unit_price, variant_id")
+      .in("order_id", pendingOrderIds);
+
+    if (pendingOrderItemsError) {
+      console.warn("Checkout retry guard could not load pending order items", {
+        requestId,
+        userId: user.id,
+        orderIds: pendingOrderIds,
+        error: pendingOrderItemsError,
+      });
+    } else {
+      pendingOrderItems = (orderItemsData ?? []) as PendingOrderItemRow[];
+    }
+  }
+
+  const reusableOrder = selectReusablePendingOrder({
+    orders: (pendingOrders ?? []) as PendingOrderRow[],
+    orderItems: pendingOrderItems,
+    orderLines,
+    checkout: {
       delivery_method: payload.deliveryMethod,
       shipping_cost: shippingCost,
       subtotal,
       total,
       shipping_address: shippingAddress,
-      mp_status: "preference_pending",
-    })
-    .select("id")
-    .single();
-
-  if (orderError || !order) {
-    console.error("Checkout failed while creating order", {
-      requestId,
-      userId: user.id,
-      error: orderError,
-    });
-
-    return NextResponse.json({ error: "No pudimos crear la orden." }, { status: 500 });
-  }
-
-  console.info("Checkout order created", {
-    requestId,
-    orderId: order.id,
-    userId: user.id,
-    deliveryMethod: payload.deliveryMethod,
-    subtotal,
-    shippingCost,
-    distanceKm,
-    geocodeSource,
-    total,
-    lineItems: orderLines.length,
+    },
   });
 
-  const { error: orderItemsError } = await supabase.from("order_items").insert(
-    orderLines.map((line) => ({
-      order_id: order.id,
-      variant_id: line.variantId,
-      quantity: line.quantity,
-      unit_price: line.unitPrice,
-    }))
-  );
+  let orderId: string;
 
-  if (orderItemsError) {
-    console.error("Checkout failed while creating order items", {
+  if (reusableOrder) {
+    const { data: reusedOrder, error: reusableOrderError } = await supabase
+      .from("orders")
+      .update({
+        mp_payment_id: null,
+        mp_preference_id: null,
+        mp_status: "preference_pending",
+      })
+      .eq("id", reusableOrder.id)
+      .eq("user_id", user.id)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
+
+    if (reusableOrderError || !reusedOrder) {
+      console.error("Checkout failed while resetting reusable order", {
+        requestId,
+        orderId: reusableOrder.id,
+        userId: user.id,
+        error: reusableOrderError,
+      });
+
+      return NextResponse.json(
+        { error: "No pudimos reanudar el intento de pago existente. Intentá nuevamente en unos segundos." },
+        { status: 500 }
+      );
+    }
+
+    orderId = reusedOrder.id;
+
+    console.info("Checkout reused pending order", {
       requestId,
-      orderId: order.id,
+      orderId,
       userId: user.id,
-      error: orderItemsError,
+      previousPreferenceId: reusableOrder.mp_preference_id,
+      previousMpStatus: reusableOrder.mp_status,
+    });
+  } else {
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .insert({
+        user_id: user.id,
+        status: "pending",
+        delivery_method: payload.deliveryMethod,
+        shipping_cost: shippingCost,
+        subtotal,
+        total,
+        shipping_address: shippingAddress,
+        mp_status: "preference_pending",
+      })
+      .select("id")
+      .single();
+
+    if (orderError || !order) {
+      console.error("Checkout failed while creating order", {
+        requestId,
+        userId: user.id,
+        error: orderError,
+      });
+
+      return NextResponse.json({ error: "No pudimos crear la orden." }, { status: 500 });
+    }
+
+    orderId = order.id;
+
+    console.info("Checkout order created", {
+      requestId,
+      orderId,
+      userId: user.id,
+      deliveryMethod: payload.deliveryMethod,
+      subtotal,
+      shippingCost,
+      distanceKm,
+      geocodeSource,
+      total,
+      lineItems: orderLines.length,
     });
 
-    await supabase
-      .from("orders")
-      .update({ mp_status: "order_items_error" })
-      .eq("id", order.id)
-      .eq("user_id", user.id);
-
-    return NextResponse.json(
-      { error: "La orden se creó, pero falló la carga de sus items." },
-      { status: 500 }
+    const { error: orderItemsError } = await supabase.from("order_items").insert(
+      orderLines.map((line) => ({
+        order_id: orderId,
+        variant_id: line.variantId,
+        quantity: line.quantity,
+        unit_price: line.unitPrice,
+      }))
     );
+
+    if (orderItemsError) {
+      console.error("Checkout failed while creating order items", {
+        requestId,
+        orderId,
+        userId: user.id,
+        error: orderItemsError,
+      });
+
+      await supabase
+        .from("orders")
+        .update({ mp_status: "order_items_error" })
+        .eq("id", orderId)
+        .eq("user_id", user.id);
+
+      return NextResponse.json(
+        { error: "La orden se creó, pero falló la carga de sus items." },
+        { status: 500 }
+      );
+    }
   }
 
   try {
     const preference = await createCheckoutProPreference({
-      external_reference: order.id,
+      external_reference: orderId,
       statement_descriptor: "PATRIA Y VIDA",
       notification_url: buildMercadoPagoUrl(baseUrlResult.baseUrl, "/api/webhooks/mercadopago"),
       back_urls: {
         success: buildMercadoPagoUrl(baseUrlResult.baseUrl, "/checkout", {
           checkout_status: "success",
-          order_id: order.id,
+          order_id: orderId,
         }),
         pending: buildMercadoPagoUrl(baseUrlResult.baseUrl, "/checkout", {
           checkout_status: "pending",
-          order_id: order.id,
+          order_id: orderId,
         }),
         failure: buildMercadoPagoUrl(baseUrlResult.baseUrl, "/checkout", {
           checkout_status: "failure",
-          order_id: order.id,
+          order_id: orderId,
         }),
       },
       auto_return: "approved",
@@ -571,7 +690,7 @@ export async function POST(request: NextRequest) {
         },
       },
       metadata: {
-        order_id: order.id,
+        order_id: orderId,
         user_id: user.id,
         delivery_method: payload.deliveryMethod,
         subtotal_uyu: subtotal,
@@ -587,7 +706,7 @@ export async function POST(request: NextRequest) {
       await supabase
         .from("orders")
         .update({ mp_status: "preference_missing_redirect" })
-        .eq("id", order.id)
+        .eq("id", orderId)
         .eq("user_id", user.id);
 
       return NextResponse.json(
@@ -602,19 +721,19 @@ export async function POST(request: NextRequest) {
         mp_preference_id: preference.id,
         mp_status: "preference_created",
       })
-      .eq("id", order.id)
+      .eq("id", orderId)
       .eq("user_id", user.id);
 
     console.info("Checkout Mercado Pago preference created", {
       requestId,
-      orderId: order.id,
+      orderId,
       preferenceId: preference.id,
       baseUrlSource: baseUrlResult.source,
       baseUrlEnvVar: baseUrlResult.envVar,
     });
 
     return NextResponse.json({
-      orderId: order.id,
+      orderId,
       preferenceId: preference.id,
       initPoint: redirectUrl,
       total,
@@ -625,7 +744,7 @@ export async function POST(request: NextRequest) {
 
     console.error("Mercado Pago preference creation failed", {
       requestId,
-      orderId: order.id,
+      orderId,
       baseUrl: baseUrlResult.baseUrl,
       baseUrlSource: baseUrlResult.source,
       baseUrlEnvVar: baseUrlResult.envVar,
@@ -638,7 +757,7 @@ export async function POST(request: NextRequest) {
     await supabase
       .from("orders")
       .update({ mp_status: "preference_error" })
-      .eq("id", order.id)
+      .eq("id", orderId)
       .eq("user_id", user.id);
 
     return NextResponse.json(

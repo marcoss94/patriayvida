@@ -666,9 +666,14 @@ export async function POST(request: NextRequest) {
 
   const signatureCheck = verifyWebhookSignature(request, parsed.data);
   const routeDecision = resolveMercadoPagoWebhookRouteDecision({
+    topic,
+    resourceId,
     hasResourceId: Boolean(resourceId),
     signatureOk: signatureCheck.ok,
     signatureMode: signatureCheck.mode,
+    notificationId,
+    requestId,
+    action: parsed.data.action ?? null,
   });
 
   if (!signatureCheck.ok) {

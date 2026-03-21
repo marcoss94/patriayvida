@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildMercadoPagoManifest,
   createMercadoPagoSignature,
+  isMercadoPagoResourceId,
   normalizeMercadoPagoNotificationTopic,
   parseMercadoPagoSignatureHeader,
   resolveMercadoPagoWebhookRouteDecision,
@@ -90,12 +91,23 @@ describe("mercadopago webhook signature helpers", () => {
     assert.equal(normalizeMercadoPagoNotificationTopic(null), "unknown");
   });
 
+  it("accepts only numeric Mercado Pago resource id shapes", () => {
+    assert.equal(isMercadoPagoResourceId("123456"), true);
+    assert.equal(isMercadoPagoResourceId(" 1234567890 "), true);
+    assert.equal(isMercadoPagoResourceId("abc123"), false);
+    assert.equal(isMercadoPagoResourceId("12345"), false);
+    assert.equal(isMercadoPagoResourceId(null), false);
+  });
+
   it("keeps reconciling when signature mismatches but ids exist", () => {
     assert.deepEqual(
       resolveMercadoPagoWebhookRouteDecision({
+        topic: "payment",
+        resourceId: "123456",
         hasResourceId: true,
         signatureOk: false,
         signatureMode: "enforced",
+        requestId: "req-1",
       }),
       {
         shouldReconcile: true,
@@ -108,6 +120,8 @@ describe("mercadopago webhook signature helpers", () => {
   it("returns 202 when intake cannot reconcile due to missing resource id", () => {
     assert.deepEqual(
       resolveMercadoPagoWebhookRouteDecision({
+        topic: "payment",
+        resourceId: null,
         hasResourceId: false,
         signatureOk: true,
         signatureMode: "enforced",
@@ -123,6 +137,8 @@ describe("mercadopago webhook signature helpers", () => {
   it("marks missing-secret mode as skipped while still allowing reconciliation", () => {
     assert.deepEqual(
       resolveMercadoPagoWebhookRouteDecision({
+        topic: "payment",
+        resourceId: "123456",
         hasResourceId: true,
         signatureOk: true,
         signatureMode: "skipped",
@@ -130,6 +146,77 @@ describe("mercadopago webhook signature helpers", () => {
       {
         shouldReconcile: true,
         verificationStatus: "skipped",
+        responseStatus: 200,
+      },
+    );
+  });
+
+  it("returns 202 for unverified requests with weak evidence", () => {
+    assert.deepEqual(
+      resolveMercadoPagoWebhookRouteDecision({
+        topic: "payment",
+        resourceId: "123456",
+        hasResourceId: true,
+        signatureOk: false,
+        signatureMode: "enforced",
+      }),
+      {
+        shouldReconcile: false,
+        verificationStatus: "unverified",
+        responseStatus: 202,
+      },
+    );
+  });
+
+  it("returns 202 for unverified requests with non Mercado Pago resource ids", () => {
+    assert.deepEqual(
+      resolveMercadoPagoWebhookRouteDecision({
+        topic: "payment",
+        resourceId: "pay_123",
+        hasResourceId: true,
+        signatureOk: false,
+        signatureMode: "enforced",
+        requestId: "req-2",
+      }),
+      {
+        shouldReconcile: false,
+        verificationStatus: "unverified",
+        responseStatus: 202,
+      },
+    );
+  });
+
+  it("returns 202 for unverified preference notifications", () => {
+    assert.deepEqual(
+      resolveMercadoPagoWebhookRouteDecision({
+        topic: "preference",
+        resourceId: "123456",
+        hasResourceId: true,
+        signatureOk: false,
+        signatureMode: "enforced",
+        requestId: "req-3",
+      }),
+      {
+        shouldReconcile: false,
+        verificationStatus: "unverified",
+        responseStatus: 202,
+      },
+    );
+  });
+
+  it("accepts unverified merchant order notifications when topic and action correlate", () => {
+    assert.deepEqual(
+      resolveMercadoPagoWebhookRouteDecision({
+        topic: "merchant_order",
+        resourceId: "123456",
+        hasResourceId: true,
+        signatureOk: false,
+        signatureMode: "enforced",
+        action: "merchant_order.updated",
+      }),
+      {
+        shouldReconcile: true,
+        verificationStatus: "unverified",
         responseStatus: 200,
       },
     );

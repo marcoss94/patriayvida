@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
   BUSINESS_ORDER_STATUSES,
+  formatShippingAddressSummary,
   formatOrderDate,
   formatOrderReference,
   getDeliveryMethodLabel,
@@ -39,6 +40,9 @@ type AdminOrderListRow = {
   created_at: string;
   status: OrderRow["status"];
   mp_status: OrderRow["mp_status"];
+  mp_payment_id: OrderRow["mp_payment_id"];
+  subtotal: number;
+  shipping_cost: number;
   total: number;
   delivery_method: OrderRow["delivery_method"];
   shipping_address: Json | null;
@@ -51,11 +55,15 @@ type AdminOrderListItem = {
   created_at: string;
   status: OrderRow["status"];
   mp_status: OrderRow["mp_status"];
+  mp_payment_id: OrderRow["mp_payment_id"];
+  subtotal: number;
+  shippingCost: number;
   total: number;
   delivery_method: OrderRow["delivery_method"];
   itemCount: number;
   customerName: string;
   customerEmail: string;
+  shippingSummary: string | null;
 };
 
 type NoticeTone = "success" | "error" | "neutral";
@@ -160,6 +168,9 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
         created_at,
         status,
         mp_status,
+        mp_payment_id,
+        subtotal,
+        shipping_cost,
         total,
         delivery_method,
         shipping_address,
@@ -184,17 +195,22 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
     const shippingSnapshot = parseShippingAddress(order.shipping_address);
     const customerName = shippingSnapshot.fullName ?? order.profile?.full_name ?? "Sin nombre";
     const customerEmail = shippingSnapshot.email ?? "Sin email";
+    const shippingSummary = formatShippingAddressSummary(shippingSnapshot);
 
     return {
       id: order.id,
       created_at: order.created_at,
       status: order.status,
       mp_status: order.mp_status,
+      mp_payment_id: order.mp_payment_id,
+      subtotal: Number(order.subtotal),
+      shippingCost: Number(order.shipping_cost),
       total: Number(order.total),
       delivery_method: order.delivery_method,
       itemCount: getOrderItemCount(order.order_items),
       customerName,
       customerEmail,
+      shippingSummary,
     };
   });
 
@@ -354,13 +370,31 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
                       <OrderStatusBadge status={order.status} />
                     </td>
                     <td className="hidden px-4 py-4 align-top md:table-cell">
-                      <PaymentStatusBadge status={order.status} mpStatus={order.mp_status} />
+                      <div className="space-y-2">
+                        <PaymentStatusBadge status={order.status} mpStatus={order.mp_status} />
+                        <div className="space-y-1 text-xs text-slate-500">
+                          <p>MP status: {order.mp_status ?? "sin dato"}</p>
+                          <p>MP id: {order.mp_payment_id ?? "sin dato"}</p>
+                        </div>
+                      </div>
                     </td>
                     <td className="hidden px-4 py-4 align-top text-slate-200 xl:table-cell">
-                      {getDeliveryMethodLabel(order.delivery_method)}
+                      <div className="space-y-1">
+                        <p>{getDeliveryMethodLabel(order.delivery_method)}</p>
+                        <p className="text-xs text-slate-500">
+                          {order.shippingSummary ??
+                            (order.delivery_method === "pickup" ? "Retiro en punto acordado" : "Sin direccion")}
+                        </p>
+                      </div>
                     </td>
                     <td className="px-4 py-4 text-right align-top font-semibold text-white">
-                      {formatPrice(order.total)}
+                      <div className="space-y-1">
+                        <p>{formatPrice(order.total)}</p>
+                        <div className="hidden space-y-1 text-xs font-normal text-slate-500 lg:block">
+                          <p>Subt. {formatPrice(order.subtotal)}</p>
+                          <p>Envio {order.shippingCost === 0 ? "Gratis" : formatPrice(order.shippingCost)}</p>
+                        </div>
+                      </div>
                     </td>
                     <td className="hidden px-4 py-4 text-right align-top text-slate-300 xl:table-cell">
                       {order.itemCount}

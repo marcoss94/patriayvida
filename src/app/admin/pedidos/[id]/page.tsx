@@ -15,6 +15,7 @@ import { updateAdminOrderStatusAction } from "@/app/admin/pedidos/actions";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
+  formatShippingAddressSummary,
   getAllowedStatusTransitions,
   formatOrderDate,
   formatOrderReference,
@@ -176,6 +177,7 @@ export default async function AdminPedidoDetallePage({
   const subtotal = Number(order.subtotal);
   const shippingCost = Number(order.shipping_cost);
   const total = Number(order.total);
+  const shippingSummary = formatShippingAddressSummary(shippingSnapshot);
   const allowedTransitions = getAllowedStatusTransitions(order.status);
   const canUpdateStatus = allowedTransitions.length > 0;
 
@@ -339,6 +341,7 @@ export default async function AdminPedidoDetallePage({
               <DetailItem label="Nombre" value={shippingSnapshot.fullName ?? order.profile?.full_name ?? "Sin dato"} />
               <DetailItem label="Email" value={shippingSnapshot.email ?? "Sin dato"} />
               <DetailItem label="Teléfono" value={shippingSnapshot.phone ?? "Sin dato"} />
+              {shippingSummary ? <DetailItem label="Resumen dirección" value={shippingSummary} /> : null}
               <DetailItem
                 label="Dirección"
                 value={
@@ -368,6 +371,22 @@ export default async function AdminPedidoDetallePage({
               <DetailItem label="mp_status" value={order.mp_status ?? "Sin dato"} />
               <DetailItem label="mp_payment_id" value={order.mp_payment_id ?? "Sin dato"} />
               <DetailItem label="mp_preference_id" value={order.mp_preference_id ?? "Sin dato"} />
+              {order.delivery_method === "shipping" ? (
+                <DetailItem
+                  label="Distancia estimada"
+                  value={
+                    shippingSnapshot.distanceKm === null
+                      ? "Sin dato"
+                      : `${shippingSnapshot.distanceKm.toFixed(2)} km`
+                  }
+                />
+              ) : null}
+              {order.delivery_method === "shipping" ? (
+                <DetailItem label="Regla de envío" value={shippingSnapshot.shippingRule ?? "Sin dato"} />
+              ) : null}
+              {order.delivery_method === "shipping" ? (
+                <DetailItem label="Geocode source" value={shippingSnapshot.geocodeSource ?? "Sin dato"} />
+              ) : null}
             </div>
           </section>
 
