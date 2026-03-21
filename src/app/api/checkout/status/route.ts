@@ -13,6 +13,10 @@ type CheckoutOrderStatusRow = {
 };
 
 export async function GET(request: NextRequest) {
+  const checkoutStatus = request.nextUrl.searchParams.get("checkout_status")?.trim() ?? null;
+  const pollTimedOut =
+    request.nextUrl.searchParams.get("poll_timed_out") === "1" ||
+    request.nextUrl.searchParams.get("poll_timed_out") === "true";
   const orderId =
     request.nextUrl.searchParams.get("order_id")?.trim() ||
     request.nextUrl.searchParams.get("external_reference")?.trim() ||
@@ -84,7 +88,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const derived = derivePaymentState(data);
+  const derived = derivePaymentState(data, {
+    checkoutStatus,
+    pollTimedOut,
+  });
 
   return NextResponse.json(
     {

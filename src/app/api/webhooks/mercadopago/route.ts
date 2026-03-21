@@ -9,7 +9,7 @@ import {
   getMercadoPagoMerchantOrder,
   getMercadoPagoPayment,
   getMercadoPagoPreference,
-  getMercadoPagoWebhookSecret,
+  getMercadoPagoWebhookSecrets,
   getMercadoPagoWebhookSecurityMode,
   isMercadoPagoConfigured,
   type MercadoPagoMerchantOrderResponse,
@@ -117,15 +117,20 @@ function getNotificationResourceId(
  *    - If any value is NOT present in the notification, REMOVE it from template
  * 3. HMAC-SHA256(secret, manifest) must equal v1
  */
-function verifyWebhookSignature(request: NextRequest) {
-  const secret = getMercadoPagoWebhookSecret();
+function verifyWebhookSignature(
+  request: NextRequest,
+  payload: z.infer<typeof webhookNotificationSchema>,
+) {
+  const secrets = getMercadoPagoWebhookSecrets();
 
-  if (!secret) {
+  if (secrets.length === 0) {
     return {
       ok: true,
       mode: "skipped",
       reason: "missing_webhook_secret",
       requestId: request.headers.get("x-request-id"),
+      matchedSecret: null,
+      manifestMatched: false,
     } as const;
   }
 
@@ -137,8 +142,10 @@ function verifyWebhookSignature(request: NextRequest) {
     return {
       ok: false,
       mode: "enforced",
-      reason: "missing_signature_headers",
+      reason: "missing_signature_header",
       requestId: xRequestId,
+      matchedSecret: null,
+      manifestMatched: false,
     } as const;
   }
 
@@ -148,40 +155,82 @@ function verifyWebhookSignature(request: NextRequest) {
     return {
       ok: false,
       mode: "enforced",
-      reason: "missing_signature_headers",
+      reason: "invalid_signature_header",
       requestId: xRequestId,
+      matchedSecret: null,
+      manifestMatched: false,
     } as const;
   }
 
-  // Step 2: Build manifest from query params (doc says data.id from query, NOT "id")
-  const dataID = request.nextUrl.searchParams.get("data.id");
+  // Step 2: Build manifest from query params (prefer docs key: data.id).
+  // Production notifications can still arrive with legacy id param.
+  const dataIdFromQuery = request.nextUrl.searchParams.get("data.id");
+  const legacyIdFromQuery = request.nextUrl.searchParams.get("id");
+  const dataIdFromPayload =
+    payload.data?.id !== undefined && payload.data?.id !== null
+      ? String(payload.data.id)
+      : payload.id !== undefined && payload.id !== null
+        ? String(payload.id)
+        : null;
 
-  // Template: id:[data.id_url];request-id:[x-request-id_header];ts:[ts_header];
-  // "Si alguno de los valores no está presente, debes removerlo"
-  const manifest = buildMercadoPagoManifest({
-    dataId: dataID,
-    requestId: xRequestId,
-    ts: signature.ts,
-  });
+  const manifestCandidates = [
+    buildMercadoPagoManifest({
+      dataId: dataIdFromQuery,
+      requestId: xRequestId,
+      ts: signature.ts,
+    }),
+  ];
+
+  for (const candidateId of [legacyIdFromQuery, dataIdFromPayload]) {
+    if (!candidateId || candidateId === dataIdFromQuery) {
+      continue;
+    }
+
+    manifestCandidates.push(
+      buildMercadoPagoManifest({
+        dataId: candidateId,
+        requestId: xRequestId,
+        ts: signature.ts,
+      }),
+    );
+  }
 
   // Step 3: HMAC-SHA256
-  const { ok: isValid, computed: cyphedSignature } = verifyMercadoPagoSignature({
-    secret,
-    manifest,
-    receivedHash: signature.hash,
-  });
+  let isValid = false;
+  let matchedManifest: string | null = null;
+  let matchedSecretIndex: number | null = null;
+
+  for (const manifest of manifestCandidates) {
+    for (let secretIndex = 0; secretIndex < secrets.length; secretIndex += 1) {
+      const verification = verifyMercadoPagoSignature({
+        secret: secrets[secretIndex],
+        manifest,
+        receivedHash: signature.hash,
+      });
+
+      if (verification.ok) {
+        isValid = true;
+        matchedManifest = manifest;
+        matchedSecretIndex = secretIndex;
+        break;
+      }
+    }
+
+    if (isValid) {
+      break;
+    }
+  }
 
   if (!isValid) {
     console.warn("Mercado Pago webhook signature debug", {
-      manifest,
-      computed: cyphedSignature,
-      received: signature.hash,
-      dataID,
-      xRequestId,
-      ts: signature.ts,
-      xSignatureRaw,
-      secretFirstChars: secret.substring(0, 6) + "...",
-      url: request.url,
+      reason: "signature_mismatch",
+      manifestCandidates: manifestCandidates.length,
+      hasDataIdFromQuery: Boolean(dataIdFromQuery),
+      hasLegacyIdFromQuery: Boolean(legacyIdFromQuery),
+      hasDataIdFromPayload: Boolean(dataIdFromPayload),
+      hasRequestIdHeader: Boolean(xRequestId),
+      secretCandidates: secrets.length,
+      path: request.nextUrl.pathname,
     });
   }
 
@@ -190,6 +239,8 @@ function verifyWebhookSignature(request: NextRequest) {
     mode: "enforced",
     reason: isValid ? "verified" : "signature_mismatch",
     requestId: xRequestId,
+    matchedSecret: matchedSecretIndex === 0 ? "primary" : matchedSecretIndex === 1 ? "previous" : null,
+    manifestMatched: Boolean(matchedManifest),
   } as const;
 }
 
@@ -607,14 +658,6 @@ export async function POST(request: NextRequest) {
   const requestId = request.headers.get("x-request-id");
   const notificationId = parsed.data.id ? String(parsed.data.id) : null;
 
-  console.info("Mercado Pago webhook received", {
-    topic,
-    resourceId,
-    notificationId,
-    requestId,
-    mode: webhookSecurityMode,
-  });
-
   if (topic === "unknown" || !resourceId) {
     console.warn(
       "Mercado Pago webhook ignored because topic or resource id is missing",
@@ -631,16 +674,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const signatureCheck = verifyWebhookSignature(request);
+  const signatureCheck = verifyWebhookSignature(request, parsed.data);
 
   if (!signatureCheck.ok) {
     if (isProductionRuntime()) {
+      console.info("Mercado Pago webhook rejected", {
+        topic,
+        resourceId,
+        notificationId,
+        requestId: signatureCheck.requestId,
+        mode: webhookSecurityMode,
+        reason: signatureCheck.reason,
+        diagnosticCode: signatureCheck.reason,
+        hasSignatureHeader: Boolean(request.headers.get("x-signature")),
+      });
+
       console.error("Mercado Pago webhook signature validation failed", {
         topic,
         resourceId,
         notificationId,
         requestId: signatureCheck.requestId,
         reason: signatureCheck.reason,
+        diagnosticCode: signatureCheck.reason,
         hasSignatureHeader: Boolean(request.headers.get("x-signature")),
       });
 
@@ -658,6 +713,17 @@ export async function POST(request: NextRequest) {
       reason: signatureCheck.reason,
     });
   }
+
+  console.info("Mercado Pago webhook received", {
+    topic,
+    resourceId,
+    notificationId,
+    requestId,
+    mode: webhookSecurityMode,
+    signatureReason: signatureCheck.reason,
+    matchedSecret: signatureCheck.matchedSecret,
+    manifestMatched: signatureCheck.manifestMatched,
+  });
 
   if (signatureCheck.mode === "skipped") {
     console.warn(

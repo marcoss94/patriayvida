@@ -5,6 +5,8 @@ export type CheckoutPaymentStateDetail =
   | "order_cancelled"
   | "payment_approved"
   | "payment_rejected"
+  | "payment_abandoned"
+  | "payment_timeout"
   | "payment_pending"
   | "payment_unknown";
 
@@ -13,7 +15,15 @@ export type CheckoutOrderPaymentSnapshot = {
   mp_status: string | null;
 };
 
-export function derivePaymentState(order: CheckoutOrderPaymentSnapshot): {
+type CheckoutStatusHint = "success" | "pending" | "failure" | null;
+
+export function derivePaymentState(
+  order: CheckoutOrderPaymentSnapshot,
+  options?: {
+    checkoutStatus?: string | null;
+    pollTimedOut?: boolean;
+  }
+): {
   state: CheckoutPaymentState;
   detail: CheckoutPaymentStateDetail;
   message: string;
@@ -37,7 +47,9 @@ export function derivePaymentState(order: CheckoutOrderPaymentSnapshot): {
     };
   }
 
-  const mpStatusBase = order.mp_status?.split(":", 1)[0] ?? null;
+  const mpStatusBase = order.mp_status?.split(":", 1)[0]?.toLowerCase() ?? null;
+  const checkoutStatus = (options?.checkoutStatus?.toLowerCase() ?? null) as CheckoutStatusHint;
+  const pollTimedOut = Boolean(options?.pollTimedOut);
 
   if (mpStatusBase && ["approved", "authorized"].includes(mpStatusBase)) {
     return {
@@ -48,7 +60,7 @@ export function derivePaymentState(order: CheckoutOrderPaymentSnapshot): {
     };
   }
 
-  if (mpStatusBase && ["rejected", "cancelled", "refunded", "charged_back"].includes(mpStatusBase)) {
+  if (mpStatusBase && ["rejected", "cancelled", "abandoned", "refunded", "charged_back"].includes(mpStatusBase)) {
     return {
       state: "failure",
       detail: "payment_rejected",
@@ -59,15 +71,43 @@ export function derivePaymentState(order: CheckoutOrderPaymentSnapshot): {
 
   if (
     mpStatusBase &&
-    ["pending", "in_process", "in_mediation", "action_required", "preference_created", "preference_pending"].includes(
-      mpStatusBase,
-    )
+    ["pending", "in_process", "in_mediation", "action_required"].includes(mpStatusBase)
   ) {
+    if (pollTimedOut) {
+      return {
+        state: "failure",
+        detail: "payment_timeout",
+        message:
+          "Tu pago sigue en revisión y no llegó una confirmación final a tiempo. Podés reintentar ahora o verificar el pedido más tarde.",
+        shouldPoll: false,
+      };
+    }
+
     return {
       state: "pending",
       detail: "payment_pending",
       message: "Tu pago está pendiente de confirmación. Este estado puede tardar unos minutos.",
       shouldPoll: true,
+    };
+  }
+
+  if ((mpStatusBase === "preference_created" || mpStatusBase === "preference_pending" || mpStatusBase === null) && checkoutStatus === "failure") {
+    return {
+      state: "failure",
+      detail: "payment_abandoned",
+      message:
+        "No vimos un pago confirmado al volver desde Mercado Pago. Si cerraste o cancelaste el flujo, podés reintentar cuando quieras.",
+      shouldPoll: false,
+    };
+  }
+
+  if (pollTimedOut) {
+    return {
+      state: "failure",
+      detail: "payment_timeout",
+      message:
+        "No pudimos confirmar el pago en este momento. Podés reintentar la compra ahora o revisar Mis pedidos en unos minutos.",
+      shouldPoll: false,
     };
   }
 

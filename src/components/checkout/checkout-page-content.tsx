@@ -79,6 +79,8 @@ type CheckoutPaymentStateDetail =
   | "order_cancelled"
   | "payment_approved"
   | "payment_rejected"
+  | "payment_abandoned"
+  | "payment_timeout"
   | "payment_pending"
   | "payment_unknown";
 
@@ -242,12 +244,18 @@ export function CheckoutPageContent({
       setReturnStatusLoading(true);
 
       try {
-        const response = await fetch(
-          `/api/checkout/status?order_id=${encodeURIComponent(resolvedReturnOrderId)}`,
-          {
-            cache: "no-store",
-          }
-        );
+        const statusParams = new URLSearchParams({
+          order_id: resolvedReturnOrderId,
+          poll_timed_out: attempt + 1 >= RETURN_STATUS_MAX_ATTEMPTS ? "1" : "0",
+        });
+
+        if (checkoutStatus) {
+          statusParams.set("checkout_status", checkoutStatus);
+        }
+
+        const response = await fetch(`/api/checkout/status?${statusParams.toString()}`, {
+          cache: "no-store",
+        });
         const data = (await response.json().catch(() => null)) as
           | { error?: string; order?: CheckoutOrderStatus }
           | null;
@@ -276,7 +284,7 @@ export function CheckoutPageContent({
 
         setReturnOrderStatus(data.order);
         setReturnStatusError(null);
-        setReturnPollCount(attempt);
+        setReturnPollCount(attempt + 1);
         setReturnStatusLoading(false);
 
         if (
@@ -309,7 +317,7 @@ export function CheckoutPageContent({
         window.clearTimeout(timeoutId);
       }
     };
-  }, [hasCheckoutReturn, resolvedReturnOrderId]);
+  }, [checkoutStatus, hasCheckoutReturn, resolvedReturnOrderId]);
 
   useEffect(() => {
     if (!isHydrated || !returnOrderStatus || returnOrderStatus.paymentState !== "paid") {
@@ -1095,24 +1103,31 @@ function ReturnActions({
   }
 
   if (order.paymentState === "failure") {
+    const paymentWasAbandoned = order.paymentStateDetail === "payment_abandoned";
+
     return (
       <Card className="border-slate-800 bg-slate-950/70 py-0">
         <CardHeader className="gap-4 border-b border-slate-800 px-6 py-6 sm:px-8 sm:py-8">
-          <CardTitle className="text-xl text-white">Podés reintentar</CardTitle>
+          <CardTitle className="text-xl text-white">{paymentWasAbandoned ? "Pago cancelado" : "Podés reintentar"}</CardTitle>
           <CardDescription className="text-sm text-slate-400">
-            Tu pedido quedó guardado, pero el pago no se acreditó. Podés revisar el carrito e intentarlo otra vez.
+            {paymentWasAbandoned
+              ? "No se registró un cobro. Podés volver al checkout para reintentar cuando quieras."
+              : "Tu pedido quedó guardado, pero el pago no se acreditó. Podés revisar el carrito e intentarlo otra vez."}
           </CardDescription>
         </CardHeader>
         <CardFooter className="flex flex-col gap-4 border-slate-800 bg-slate-950/80 px-6 py-6 sm:px-8 sm:py-8">
-          <ActionLink href="/carrito" variant="brand" className="w-full">
-            Volver al carrito
+          <ActionLink href="/checkout" variant="brand" className="w-full">
+            Reintentar pago
           </ActionLink>
           <ActionLink
-            href="/checkout"
+            href="/carrito"
             variant="outline"
             className="w-full border-slate-700 bg-transparent text-slate-200 hover:bg-slate-900"
           >
-            Volver al pago
+            Volver al carrito
+          </ActionLink>
+          <ActionLink href="/" variant="ghost" className="w-full text-slate-300 hover:text-white">
+            Ir al inicio
           </ActionLink>
         </CardFooter>
       </Card>
@@ -1170,6 +1185,14 @@ function getReturnMessage(
   }
 
   if (order.paymentState === "failure") {
+    if (order.paymentStateDetail === "payment_abandoned") {
+      return "No detectamos un pago confirmado al volver desde Mercado Pago. Si cancelaste el flujo, podés reintentarlo ahora.";
+    }
+
+    if (order.paymentStateDetail === "payment_timeout") {
+      return "No llegó una confirmación final a tiempo. Si querés resolverlo ya, reintentá el pago; también podés revisar Mis pedidos.";
+    }
+
     return "Tu pedido figura registrado, pero el pago todavía no fue acreditado. Revisalo o intentá nuevamente cuando quieras.";
   }
 

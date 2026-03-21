@@ -27,7 +27,7 @@ export type MercadoPagoWebhookSecurityMode =
   | "misconfigured_production";
 
 export function getMercadoPagoWebhookSecurityMode(): MercadoPagoWebhookSecurityMode {
-  const hasWebhookSecret = Boolean(readOptionalEnv("MERCADOPAGO_WEBHOOK_SECRET"));
+  const hasWebhookSecret = getMercadoPagoWebhookSecrets().length > 0;
 
   if (hasWebhookSecret) {
     return "enforced";
@@ -38,6 +38,26 @@ export function getMercadoPagoWebhookSecurityMode(): MercadoPagoWebhookSecurityM
 
 export function getMercadoPagoWebhookSecret() {
   return readOptionalEnv("MERCADOPAGO_WEBHOOK_SECRET");
+}
+
+export function getMercadoPagoPreviousWebhookSecret() {
+  return readOptionalEnv("MERCADOPAGO_WEBHOOK_SECRET_PREVIOUS");
+}
+
+export function getMercadoPagoWebhookSecrets() {
+  const primary = getMercadoPagoWebhookSecret();
+  const previous = getMercadoPagoPreviousWebhookSecret();
+  const unique = new Set<string>();
+
+  if (primary) {
+    unique.add(primary);
+  }
+
+  if (previous) {
+    unique.add(previous);
+  }
+
+  return [...unique];
 }
 
 export async function createCheckoutProPreference(

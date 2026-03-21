@@ -1,5 +1,27 @@
 import crypto from "node:crypto";
 
+function normalizeSignatureHash(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function safeCompareHashes(left: string, right: string) {
+  const leftNormalized = normalizeSignatureHash(left);
+  const rightNormalized = normalizeSignatureHash(right);
+
+  if (!leftNormalized || !rightNormalized) {
+    return false;
+  }
+
+  if (leftNormalized.length !== rightNormalized.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(
+    Buffer.from(leftNormalized, "utf8"),
+    Buffer.from(rightNormalized, "utf8"),
+  );
+}
+
 export function parseMercadoPagoSignatureHeader(xSignatureRaw: string | null) {
   if (!xSignatureRaw) {
     return null;
@@ -10,14 +32,19 @@ export function parseMercadoPagoSignatureHeader(xSignatureRaw: string | null) {
   let hash: string | undefined;
 
   for (const part of parts) {
-    const [key, value] = part.split("=", 2);
+    const segment = part.trim();
+    const separatorIndex = segment.indexOf("=");
+
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const key = segment.slice(0, separatorIndex).trim().toLowerCase();
+    const value = segment.slice(separatorIndex + 1).trim();
 
     if (key && value) {
-      const trimmedKey = key.trim();
-      const trimmedValue = value.trim();
-
-      if (trimmedKey === "ts") ts = trimmedValue;
-      else if (trimmedKey === "v1") hash = trimmedValue;
+      if (key === "ts") ts = value;
+      else if (key === "v1") hash = normalizeSignatureHash(value);
     }
   }
 
@@ -55,7 +82,39 @@ export function verifyMercadoPagoSignature(params: {
 }) {
   const computed = createMercadoPagoSignature(params.secret, params.manifest);
   return {
-    ok: computed === params.receivedHash,
+    ok: safeCompareHashes(computed, params.receivedHash),
     computed,
   };
+}
+
+export function verifyMercadoPagoSignatureWithRotation(params: {
+  secrets: readonly string[];
+  manifest: string;
+  receivedHash: string;
+}) {
+  let computed: string | null = null;
+
+  for (let index = 0; index < params.secrets.length; index += 1) {
+    const verification = verifyMercadoPagoSignature({
+      secret: params.secrets[index],
+      manifest: params.manifest,
+      receivedHash: params.receivedHash,
+    });
+
+    computed = verification.computed;
+
+    if (verification.ok) {
+      return {
+        ok: true,
+        matchedSecretIndex: index,
+        computed,
+      } as const;
+    }
+  }
+
+  return {
+    ok: false,
+    matchedSecretIndex: null,
+    computed,
+  } as const;
 }
