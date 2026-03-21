@@ -1,30 +1,21 @@
 import Link from "next/link";
 import { ClipboardList, Search } from "lucide-react";
-import { OrderStatusTabs } from "@/components/orders/order-status-tabs";
 import { OrderStatusBadge } from "@/components/account/order-status-badge";
 import { PaymentStatusBadge } from "@/components/account/payment-status-badge";
+import { OrderStatusTabs } from "@/components/orders/order-status-tabs";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
-import {
-  BUSINESS_ORDER_STATUSES,
-  formatShippingAddressSummary,
-  formatOrderDate,
-  formatOrderReference,
-  getDeliveryMethodLabel,
-  getOrderItemCount,
-  getOrderStatusMeta,
-  isBusinessOrderStatus,
-  parseShippingAddress,
-  type BusinessOrderStatus,
-  type OrderRow,
-} from "@/lib/orders";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { formatOrderDate, formatOrderReference, getDeliveryMethodLabel } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/currency";
-import type { Json } from "@/types/database";
-
-const FETCH_LIMIT = 250;
-const PAGE_SIZE = 20;
+import {
+  ADMIN_ORDER_STATUS_TABS,
+  FETCH_LIMIT,
+  PAGE_SIZE,
+  buildAdminOrdersListPath,
+  getAdminOrdersNoticeClasses,
+  loadAdminOrdersPageData,
+} from "./data";
 
 type AdminOrdersPageProps = {
   searchParams: Promise<{
@@ -35,208 +26,19 @@ type AdminOrdersPageProps = {
   }>;
 };
 
-type AdminOrderListRow = {
-  id: string;
-  created_at: string;
-  status: OrderRow["status"];
-  mp_status: OrderRow["mp_status"];
-  mp_payment_id: OrderRow["mp_payment_id"];
-  subtotal: number;
-  shipping_cost: number;
-  total: number;
-  delivery_method: OrderRow["delivery_method"];
-  shipping_address: Json | null;
-  order_items: Array<{ quantity: number }> | null;
-  profile: { full_name: string | null } | null;
-};
-
-type AdminOrderListItem = {
-  id: string;
-  created_at: string;
-  status: OrderRow["status"];
-  mp_status: OrderRow["mp_status"];
-  mp_payment_id: OrderRow["mp_payment_id"];
-  subtotal: number;
-  shippingCost: number;
-  total: number;
-  delivery_method: OrderRow["delivery_method"];
-  itemCount: number;
-  customerName: string;
-  customerEmail: string;
-  shippingSummary: string | null;
-};
-
-type NoticeTone = "success" | "error" | "neutral";
-
-const ORDER_STATUS_TABS = [
-  { value: "all", label: "Todos" },
-  ...BUSINESS_ORDER_STATUSES.map((status) => ({
-    value: status,
-    label: getOrderStatusMeta(status).label,
-  })),
-] as const;
-
-function parseStatusFilter(rawValue: string | undefined): BusinessOrderStatus | "all" {
-  if (!rawValue) {
-    return "all";
-  }
-
-  return isBusinessOrderStatus(rawValue) ? rawValue : "all";
-}
-
-function parsePage(rawValue: string | undefined) {
-  const parsed = Number.parseInt(rawValue ?? "1", 10);
-
-  if (Number.isNaN(parsed) || parsed < 1) {
-    return 1;
-  }
-
-  return parsed;
-}
-
-function getNotice(notice: string | undefined): { tone: NoticeTone; text: string } | null {
-  switch (notice) {
-    case "status_updated":
-      return { tone: "success", text: "Estado actualizado correctamente." };
-    case "forbidden":
-      return { tone: "error", text: "No tenés permisos para actualizar este pedido." };
-    case "invalid_payload":
-      return { tone: "error", text: "No pudimos interpretar la actualización solicitada." };
-    case "order_not_found":
-      return { tone: "error", text: "El pedido ya no existe o no está disponible." };
-    case "unsupported_status":
-      return { tone: "error", text: "El pedido tiene un estado no gestionable desde este panel." };
-    case "no_change":
-      return { tone: "neutral", text: "No hubo cambios porque ya tenía ese estado." };
-    case "invalid_transition":
-      return { tone: "error", text: "La transición de estado no está permitida." };
-    case "update_failed":
-      return { tone: "error", text: "No pudimos guardar el nuevo estado. Probá nuevamente." };
-    default:
-      return null;
-  }
-}
-
-function getNoticeClasses(tone: NoticeTone) {
-  if (tone === "success") {
-    return "border-emerald-500/30 bg-emerald-500/12 text-emerald-100";
-  }
-
-  if (tone === "error") {
-    return "border-red-500/30 bg-red-500/12 text-red-100";
-  }
-
-  return "border-slate-700 bg-slate-900/65 text-slate-200";
-}
-
-function buildListPath(params: {
-  status: BusinessOrderStatus | "all";
-  query: string;
-  page?: number;
-}) {
-  const searchParams = new URLSearchParams();
-
-  if (params.status !== "all") {
-    searchParams.set("status", params.status);
-  }
-
-  if (params.query) {
-    searchParams.set("q", params.query);
-  }
-
-  if (params.page && params.page > 1) {
-    searchParams.set("page", String(params.page));
-  }
-
-  const queryString = searchParams.toString();
-  return queryString ? `/admin/pedidos?${queryString}` : "/admin/pedidos";
-}
-
 export default async function AdminPedidosPage({ searchParams }: AdminOrdersPageProps) {
-  const resolvedSearchParams = await searchParams;
-  const statusFilter = parseStatusFilter(resolvedSearchParams.status);
-  const query = resolvedSearchParams.q?.trim() ?? "";
-  const requestedPage = parsePage(resolvedSearchParams.page);
-  const notice = getNotice(resolvedSearchParams.notice);
-  const admin = createAdminClient();
-
-  let ordersQuery = admin
-    .from("orders")
-    .select(
-      `
-        id,
-        created_at,
-        status,
-        mp_status,
-        mp_payment_id,
-        subtotal,
-        shipping_cost,
-        total,
-        delivery_method,
-        shipping_address,
-        order_items(quantity),
-        profile:profiles!orders_user_id_fkey(full_name)
-      `
-    )
-    .order("created_at", { ascending: false })
-    .limit(FETCH_LIMIT);
-
-  if (statusFilter !== "all") {
-    ordersQuery = ordersQuery.eq("status", statusFilter);
-  }
-
-  const { data, error } = await ordersQuery;
-
-  if (error) {
-    throw new Error("No pudimos cargar los pedidos de administración.");
-  }
-
-  const mappedOrders = ((data ?? []) as unknown as AdminOrderListRow[]).map<AdminOrderListItem>((order) => {
-    const shippingSnapshot = parseShippingAddress(order.shipping_address);
-    const customerName = shippingSnapshot.fullName ?? order.profile?.full_name ?? "Sin nombre";
-    const customerEmail = shippingSnapshot.email ?? "Sin email";
-    const shippingSummary = formatShippingAddressSummary(shippingSnapshot);
-
-    return {
-      id: order.id,
-      created_at: order.created_at,
-      status: order.status,
-      mp_status: order.mp_status,
-      mp_payment_id: order.mp_payment_id,
-      subtotal: Number(order.subtotal),
-      shippingCost: Number(order.shipping_cost),
-      total: Number(order.total),
-      delivery_method: order.delivery_method,
-      itemCount: getOrderItemCount(order.order_items),
-      customerName,
-      customerEmail,
-      shippingSummary,
-    };
-  });
-
-  const normalizedQuery = query.toLowerCase();
-  const filteredOrders =
-    normalizedQuery.length === 0
-      ? mappedOrders
-      : mappedOrders.filter((order) => {
-          const searchableText = [
-            order.id,
-            formatOrderReference(order.id),
-            order.customerName,
-            order.customerEmail,
-          ]
-            .join(" ")
-            .toLowerCase();
-
-          return searchableText.includes(normalizedQuery);
-        });
-
-  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
-  const currentPage = Math.min(requestedPage, totalPages);
-  const pageStart = (currentPage - 1) * PAGE_SIZE;
-  const pageOrders = filteredOrders.slice(pageStart, pageStart + PAGE_SIZE);
-  const hasActiveFilters = statusFilter !== "all" || query.length > 0;
-  const hasMoreResults = mappedOrders.length === FETCH_LIMIT;
+  const {
+    statusFilter,
+    query,
+    notice,
+    mappedOrders,
+    filteredOrders,
+    currentPage,
+    totalPages,
+    pageOrders,
+    hasActiveFilters,
+    hasMoreResults,
+  } = await loadAdminOrdersPageData(await searchParams);
 
   return (
     <div className="space-y-6">
@@ -283,14 +85,14 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
         </div>
 
         <OrderStatusTabs
-          tabs={ORDER_STATUS_TABS}
+          tabs={ADMIN_ORDER_STATUS_TABS}
           activeValue={statusFilter}
-          getHref={(status) => buildListPath({ status, query })}
+          getHref={(status) => buildAdminOrdersListPath({ status, query })}
           ariaLabel="Filtrar pedidos de administracion por estado"
         />
 
         {notice ? (
-          <div className={`rounded-xl border px-4 py-3 text-sm ${getNoticeClasses(notice.tone)}`}>
+          <div className={`rounded-xl border px-4 py-3 text-sm ${getAdminOrdersNoticeClasses(notice.tone)}`}>
             {notice.text}
           </div>
         ) : null}
@@ -403,13 +205,13 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
                       <Link
                         href={`/admin/pedidos/${order.id}`}
                         className={cn(
-                           buttonVariants({
-                             variant: "brand",
-                             size: "sm",
-                             className: "text-white",
-                             })
-                           )}
-                        >
+                          buttonVariants({
+                            variant: "brand",
+                            size: "sm",
+                            className: "text-white",
+                          })
+                        )}
+                      >
                         Ver detalle
                       </Link>
                     </td>
@@ -431,7 +233,7 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
               <span className={cn(buttonVariants({ variant: "outline" }), "pointer-events-none opacity-50")}>Anterior</span>
             ) : (
               <Link
-                href={buildListPath({
+                href={buildAdminOrdersListPath({
                   status: statusFilter,
                   query,
                   page: currentPage - 1,
@@ -445,7 +247,7 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
               <span className={cn(buttonVariants({ variant: "outline" }), "pointer-events-none opacity-50")}>Siguiente</span>
             ) : (
               <Link
-                href={buildListPath({
+                href={buildAdminOrdersListPath({
                   status: statusFilter,
                   query,
                   page: currentPage + 1,

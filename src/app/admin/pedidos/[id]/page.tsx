@@ -15,59 +15,20 @@ import { updateAdminOrderStatusAction } from "@/app/admin/pedidos/actions";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
-  formatShippingAddressSummary,
-  getAllowedStatusTransitions,
   formatOrderDate,
   formatOrderReference,
   getDeliveryMethodLabel,
   getOrderStatusMeta,
   getPaymentStatusMeta,
-  parseShippingAddress,
-  type OrderRow,
 } from "@/lib/orders";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/currency";
-import type { Json } from "@/types/database";
+import { getAdminOrdersNoticeClasses } from "../data";
+import { loadAdminOrderDetail } from "./data";
 
 type AdminPedidoDetallePageProps = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ notice?: string }>;
-};
-
-type AdminOrderDetailRow = {
-  id: string;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-  status: OrderRow["status"];
-  mp_status: OrderRow["mp_status"];
-  mp_payment_id: OrderRow["mp_payment_id"];
-  mp_preference_id: OrderRow["mp_preference_id"];
-  delivery_method: OrderRow["delivery_method"];
-  shipping_address: Json | null;
-  shipping_cost: number;
-  subtotal: number;
-  total: number;
-  profile: { full_name: string | null } | null;
-  order_items:
-    | Array<{
-        id: string;
-        quantity: number;
-        unit_price: number;
-        variant: {
-          id: string;
-          name: string;
-          sku: string;
-          attributes: { size?: string } | null;
-          product: {
-            id: string;
-            name: string;
-            slug: string;
-          };
-        };
-      }>
-    | null;
 };
 
 type NoticeTone = "success" | "error" | "neutral";
@@ -95,18 +56,6 @@ function getNotice(notice: string | undefined): { tone: NoticeTone; text: string
   }
 }
 
-function getNoticeClasses(tone: NoticeTone) {
-  if (tone === "success") {
-    return "border-emerald-500/30 bg-emerald-500/12 text-emerald-100";
-  }
-
-  if (tone === "error") {
-    return "border-red-500/30 bg-red-500/12 text-red-100";
-  }
-
-  return "border-slate-700 bg-slate-900/65 text-slate-200";
-}
-
 function DetailItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/55 px-3 py-3">
@@ -123,62 +72,23 @@ export default async function AdminPedidoDetallePage({
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
   const notice = getNotice(resolvedSearchParams.notice);
-  const admin = createAdminClient();
+  const detail = await loadAdminOrderDetail(id, { onNotFound: notFound });
 
-  const { data, error } = await admin
-    .from("orders")
-    .select(
-      `
-        id,
-        user_id,
-        created_at,
-        updated_at,
-        status,
-        mp_status,
-        mp_payment_id,
-        mp_preference_id,
-        delivery_method,
-        shipping_address,
-        shipping_cost,
-        subtotal,
-        total,
-        profile:profiles!orders_user_id_fkey(full_name),
-        order_items(
-          id,
-          quantity,
-          unit_price,
-          variant:product_variants!inner(
-            id,
-            name,
-            sku,
-            attributes,
-            product:products!inner(
-              id,
-              name,
-              slug
-            )
-          )
-        )
-      `
-    )
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error || !data) {
-    notFound();
+  if (!detail) {
+    return null;
   }
 
-  const order = data as unknown as AdminOrderDetailRow;
-  const shippingSnapshot = parseShippingAddress(order.shipping_address);
-  const lineItems = (order.order_items ?? []).map((item) => ({
-    ...item,
-    unit_price: Number(item.unit_price),
-  }));
-  const subtotal = Number(order.subtotal);
-  const shippingCost = Number(order.shipping_cost);
-  const total = Number(order.total);
-  const shippingSummary = formatShippingAddressSummary(shippingSnapshot);
-  const allowedTransitions = getAllowedStatusTransitions(order.status);
+  const {
+    order,
+    shippingSnapshot,
+    shippingSummary,
+    lineItems,
+    subtotal,
+    shippingCost,
+    total,
+    allowedTransitions,
+    operationalFields,
+  } = detail;
   const canUpdateStatus = allowedTransitions.length > 0;
 
   return (
@@ -228,7 +138,7 @@ export default async function AdminPedidoDetallePage({
       </section>
 
       {notice ? (
-        <div className={`rounded-xl border px-4 py-3 text-sm ${getNoticeClasses(notice.tone)}`}>
+        <div className={`rounded-xl border px-4 py-3 text-sm ${getAdminOrdersNoticeClasses(notice.tone)}`}>
           {notice.text}
         </div>
       ) : null}
@@ -266,9 +176,7 @@ export default async function AdminPedidoDetallePage({
                       <p className="text-sm text-slate-400">
                         {item.quantity} x {formatPrice(item.unit_price)}
                       </p>
-                      <p className="text-lg font-bold text-white">
-                        {formatPrice(item.quantity * item.unit_price)}
-                      </p>
+                      <p className="text-lg font-bold text-white">{formatPrice(item.quantity * item.unit_price)}</p>
                     </div>
                   </div>
                 </div>
@@ -364,29 +272,13 @@ export default async function AdminPedidoDetallePage({
             </div>
 
             <div className="space-y-3">
-              <DetailItem label="ID pedido" value={order.id} />
-              <DetailItem label="ID cliente" value={order.user_id} />
-              <DetailItem label="Creado" value={formatOrderDate(order.created_at)} />
-              <DetailItem label="Actualizado" value={formatOrderDate(order.updated_at)} />
-              <DetailItem label="mp_status" value={order.mp_status ?? "Sin dato"} />
-              <DetailItem label="mp_payment_id" value={order.mp_payment_id ?? "Sin dato"} />
-              <DetailItem label="mp_preference_id" value={order.mp_preference_id ?? "Sin dato"} />
-              {order.delivery_method === "shipping" ? (
+              {operationalFields.map((field) => (
                 <DetailItem
-                  label="Distancia estimada"
-                  value={
-                    shippingSnapshot.distanceKm === null
-                      ? "Sin dato"
-                      : `${shippingSnapshot.distanceKm.toFixed(2)} km`
-                  }
+                  key={field.label}
+                  label={field.label}
+                  value={field.label === "Creado" || field.label === "Actualizado" ? formatOrderDate(field.value) : field.value}
                 />
-              ) : null}
-              {order.delivery_method === "shipping" ? (
-                <DetailItem label="Regla de envío" value={shippingSnapshot.shippingRule ?? "Sin dato"} />
-              ) : null}
-              {order.delivery_method === "shipping" ? (
-                <DetailItem label="Geocode source" value={shippingSnapshot.geocodeSource ?? "Sin dato"} />
-              ) : null}
+              ))}
             </div>
           </section>
 
@@ -406,9 +298,7 @@ export default async function AdminPedidoDetallePage({
               </div>
               <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900/55 px-3 py-3">
                 <span>Envío</span>
-                <span className="font-medium text-slate-100">
-                  {shippingCost === 0 ? "Gratis" : formatPrice(shippingCost)}
-                </span>
+                <span className="font-medium text-slate-100">{shippingCost === 0 ? "Gratis" : formatPrice(shippingCost)}</span>
               </div>
               <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-700 bg-slate-900/75 px-3 py-3 text-base">
                 <span className="font-semibold text-white">Total</span>

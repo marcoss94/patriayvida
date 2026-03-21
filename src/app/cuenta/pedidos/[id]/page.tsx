@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CreditCard, MapPin, PackageSearch } from "lucide-react";
-import { PaymentStatusBadge } from "@/components/account/payment-status-badge";
 import { OrderStatusBadge } from "@/components/account/order-status-badge";
+import { PaymentStatusBadge } from "@/components/account/payment-status-badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
   formatOrderDate,
@@ -10,47 +10,13 @@ import {
   getDeliveryMethodLabel,
   getOrderStatusMeta,
   getPaymentStatusMeta,
-  parseShippingAddress,
-  type OrderRow,
 } from "@/lib/orders";
-import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/currency";
+import { loadUserOrderDetail } from "./data";
 
 type PedidoDetallePageProps = {
   params: Promise<{ id: string }>;
-};
-
-type OrderDetailRow = {
-  id: string;
-  created_at: string;
-  status: OrderRow["status"];
-  mp_status: OrderRow["mp_status"];
-  mp_payment_id: OrderRow["mp_payment_id"];
-  mp_preference_id: OrderRow["mp_preference_id"];
-  delivery_method: OrderRow["delivery_method"];
-  shipping_address: import("@/types/database").Json | null;
-  shipping_cost: number;
-  subtotal: number;
-  total: number;
-  order_items:
-    | Array<{
-        id: string;
-        quantity: number;
-        unit_price: number;
-        variant: {
-          id: string;
-          name: string;
-          sku: string;
-          attributes: { size?: string } | null;
-          product: {
-            id: string;
-            name: string;
-            slug: string;
-          };
-        };
-      }>
-    | null;
 };
 
 function DetailItem({ label, value }: { label: string; value: string }) {
@@ -64,65 +30,13 @@ function DetailItem({ label, value }: { label: string; value: string }) {
 
 export default async function PedidoDetallePage({ params }: PedidoDetallePageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const detail = await loadUserOrderDetail(id, { onNotFound: notFound });
 
-  if (!user) {
+  if (!detail) {
     return null;
   }
 
-  const { data, error } = await supabase
-    .from("orders")
-    .select(
-      `
-        id,
-        created_at,
-        status,
-        mp_status,
-        mp_payment_id,
-        mp_preference_id,
-        delivery_method,
-        shipping_address,
-        shipping_cost,
-        subtotal,
-        total,
-        order_items(
-          id,
-          quantity,
-          unit_price,
-          variant:product_variants!inner(
-            id,
-            name,
-            sku,
-            attributes,
-            product:products!inner(
-              id,
-              name,
-              slug
-            )
-          )
-        )
-      `
-    )
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .single();
-
-  if (error || !data) {
-    notFound();
-  }
-
-  const order = data as unknown as OrderDetailRow;
-  const shippingSnapshot = parseShippingAddress(order.shipping_address);
-  const lineItems = (order.order_items ?? []).map((item) => ({
-    ...item,
-    unit_price: Number(item.unit_price),
-  }));
-  const subtotal = Number(order.subtotal);
-  const shippingCost = Number(order.shipping_cost);
-  const total = Number(order.total);
+  const { order, shippingSnapshot, lineItems, subtotal, shippingCost, total } = detail;
 
   return (
     <div className="space-y-6">
@@ -196,9 +110,7 @@ export default async function PedidoDetallePage({ params }: PedidoDetallePagePro
                     <p className="text-sm text-slate-400">
                       {item.quantity} x {formatPrice(item.unit_price)}
                     </p>
-                    <p className="text-lg font-bold text-white">
-                      {formatPrice(item.quantity * item.unit_price)}
-                    </p>
+                    <p className="text-lg font-bold text-white">{formatPrice(item.quantity * item.unit_price)}</p>
                   </div>
                 </div>
               </div>
@@ -249,9 +161,7 @@ export default async function PedidoDetallePage({ params }: PedidoDetallePagePro
               </div>
               <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900/55 px-3 py-3">
                 <span>Envío</span>
-                <span className="font-medium text-slate-100">
-                  {shippingCost === 0 ? "Gratis" : formatPrice(shippingCost)}
-                </span>
+                <span className="font-medium text-slate-100">{shippingCost === 0 ? "Gratis" : formatPrice(shippingCost)}</span>
               </div>
               <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-700 bg-slate-900/75 px-3 py-3 text-base">
                 <span className="font-semibold text-white">Total</span>

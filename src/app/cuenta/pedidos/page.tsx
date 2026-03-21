@@ -1,93 +1,26 @@
 import Link from "next/link";
 import { Package2, ReceiptText } from "lucide-react";
-import { OrderStatusTabs } from "@/components/orders/order-status-tabs";
-import { PaymentStatusBadge } from "@/components/account/payment-status-badge";
 import { OrderStatusBadge } from "@/components/account/order-status-badge";
+import { PaymentStatusBadge } from "@/components/account/payment-status-badge";
+import { OrderStatusTabs } from "@/components/orders/order-status-tabs";
 import { buttonVariants } from "@/components/ui/button-variants";
-import {
-  BUSINESS_ORDER_STATUSES,
-  getDeliveryMethodLabel,
-  formatOrderDate,
-  formatOrderReference,
-  getOrderStatusMeta,
-  getOrderItemCount,
-  isBusinessOrderStatus,
-  type BusinessOrderStatus,
-  type OrderRow,
-} from "@/lib/orders";
-import { createClient } from "@/lib/supabase/server";
+import { formatOrderDate, formatOrderReference, getDeliveryMethodLabel } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/currency";
-
-const ORDER_STATUS_TABS = [
-  { value: "all", label: "Todos" },
-  ...BUSINESS_ORDER_STATUSES.map((status) => ({
-    value: status,
-    label: getOrderStatusMeta(status).label,
-  })),
-] as const;
+import { ORDER_STATUS_TABS, buildUserOrdersListPath, loadUserOrdersPageData } from "./data";
 
 type UserOrdersPageProps = {
   searchParams: Promise<{ status?: string }>;
 };
 
-function parseStatusFilter(rawValue: string | undefined): BusinessOrderStatus | "all" {
-  if (!rawValue) {
-    return "all";
-  }
-
-  return isBusinessOrderStatus(rawValue) ? rawValue : "all";
-}
-
-function buildOrdersListPath(status: BusinessOrderStatus | "all") {
-  if (status === "all") {
-    return "/cuenta/pedidos";
-  }
-
-  return `/cuenta/pedidos?status=${status}`;
-}
-
-type OrderListRow = {
-  id: string;
-  created_at: string;
-  status: OrderRow["status"];
-  mp_status: OrderRow["mp_status"];
-  total: number;
-  delivery_method: OrderRow["delivery_method"];
-  order_items: Array<{ quantity: number }> | null;
-};
-
 export default async function PedidosPage({ searchParams }: UserOrdersPageProps) {
-  const resolvedSearchParams = await searchParams;
-  const statusFilter = parseStatusFilter(resolvedSearchParams.status);
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const pageData = await loadUserOrdersPageData(await searchParams);
 
-  if (!user) {
+  if (!pageData) {
     return null;
   }
 
-  const { data, error } = await supabase
-    .from("orders")
-    .select("id, created_at, status, mp_status, total, delivery_method, order_items(quantity)")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    throw new Error("No pudimos cargar tus pedidos.");
-  }
-
-  const orders = ((data ?? []) as unknown as OrderListRow[]).map((order) => ({
-    ...order,
-    total: Number(order.total),
-    itemCount: getOrderItemCount(order.order_items),
-  }));
-
-  const filteredOrders =
-    statusFilter === "all" ? orders : orders.filter((order) => order.status === statusFilter);
-  const latestVisibleOrder = filteredOrders[0] ?? orders[0] ?? null;
+  const { statusFilter, orders, filteredOrders, latestVisibleOrder, visibleItemCount } = pageData;
 
   return (
     <div className="space-y-6">
@@ -119,9 +52,7 @@ export default async function PedidosPage({ searchParams }: UserOrdersPageProps)
             </div>
             <div className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Ítems acumulados</p>
-              <p className="mt-3 text-2xl font-bold text-white">
-                {filteredOrders.reduce((total, order) => total + order.itemCount, 0)}
-              </p>
+              <p className="mt-3 text-2xl font-bold text-white">{visibleItemCount}</p>
             </div>
           </div>
         </div>
@@ -130,7 +61,7 @@ export default async function PedidosPage({ searchParams }: UserOrdersPageProps)
       <OrderStatusTabs
         tabs={ORDER_STATUS_TABS}
         activeValue={statusFilter}
-        getHref={buildOrdersListPath}
+        getHref={buildUserOrdersListPath}
         ariaLabel="Filtrar mis pedidos por estado"
       />
 
@@ -144,10 +75,7 @@ export default async function PedidosPage({ searchParams }: UserOrdersPageProps)
             Cuando completes una compra, acá vas a encontrar el estado, el total y el detalle de cada pedido.
           </p>
           <div className="mt-5">
-            <Link
-              href="/productos"
-              className={cn(buttonVariants({ variant: "brand" }))}
-            >
+            <Link href="/productos" className={cn(buttonVariants({ variant: "brand" }))}>
               Explorar productos
             </Link>
           </div>
@@ -207,8 +135,7 @@ export default async function PedidosPage({ searchParams }: UserOrdersPageProps)
                           buttonVariants({
                             variant: "brand",
                             size: "sm",
-                            className:
-                              "font-semibold",
+                            className: "font-semibold",
                           })
                         )}
                       >
