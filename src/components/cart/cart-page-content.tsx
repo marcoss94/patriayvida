@@ -26,7 +26,7 @@ import { formatPrice, formatStock } from "@/lib/utils/currency";
 import { cn } from "@/lib/utils";
 
 const primaryCtaClass =
-  "h-11 bg-red-600 text-base font-semibold text-white hover:bg-red-700 focus-visible:ring-red-500/30";
+  "h-11 text-base font-semibold";
 const secondaryCtaClass =
   "h-11 border-slate-700 bg-transparent text-base font-semibold text-slate-200 hover:border-slate-500 hover:bg-red-700 hover:text-white";
 const destructiveCtaClass =
@@ -80,7 +80,7 @@ export function CartPageContent() {
               </Link>
               <Link
                 href="/productos"
-                className={cn(buttonVariants({ className: `${primaryCtaClass} w-full sm:w-auto` }))}
+                className={cn(buttonVariants({ variant: "brand", className: `${primaryCtaClass} w-full sm:w-auto` }))}
               >
                 <ShoppingBag data-icon="inline-start" />
                 Seguir comprando
@@ -221,6 +221,7 @@ export function CartPageContent() {
               href="/checkout"
               className={cn(
                 buttonVariants({
+                  variant: "brand",
                   className: `${primaryCtaClass} w-full`,
                 })
               )}

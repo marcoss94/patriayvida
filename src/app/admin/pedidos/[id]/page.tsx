@@ -308,7 +308,7 @@ export default async function AdminPedidoDetallePage({
                     </select>
                   </label>
 
-                  <Button type="submit" className="w-full bg-red-600 text-white hover:bg-red-700">
+                  <Button type="submit" variant="brand" className="w-full">
                     <CircleCheck className="size-4" />
                     Confirmar cambio
                   </Button>

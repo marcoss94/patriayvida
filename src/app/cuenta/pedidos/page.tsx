@@ -146,7 +146,7 @@ export default async function PedidosPage({ searchParams }: UserOrdersPageProps)
           <div className="mt-5">
             <Link
               href="/productos"
-              className={cn(buttonVariants({ className: "bg-red-600 text-white hover:bg-red-700" }))}
+              className={cn(buttonVariants({ variant: "brand" }))}
             >
               Explorar productos
             </Link>
@@ -205,9 +205,10 @@ export default async function PedidosPage({ searchParams }: UserOrdersPageProps)
                         href={`/cuenta/pedidos/${order.id}`}
                         className={cn(
                           buttonVariants({
+                            variant: "brand",
                             size: "sm",
                             className:
-                              "bg-red-600 font-semibold text-white hover:bg-red-700 focus-visible:ring-red-500/30",
+                              "font-semibold",
                           })
                         )}
                       >

@@ -219,10 +219,11 @@ export function ProductPurchasePanel({
 
         <Button
           type="button"
+          variant="brand"
           size="lg"
           onClick={handleAddToCart}
           disabled={!isHydrated || !hasAvailableVariants || isAdding}
-          className="h-12 w-full bg-red-600 text-base font-semibold text-white hover:bg-red-700 disabled:bg-slate-800 disabled:text-slate-500"
+          className="h-12 w-full text-base font-semibold disabled:bg-slate-800 disabled:text-slate-500"
         >
           {isAdding ? (
             <Loader2 data-icon="inline-start" className="animate-spin" />

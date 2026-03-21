@@ -100,7 +100,7 @@ const PENDING_CHECKOUT_STORAGE_KEY = "patriayvida-pending-checkout";
 const RETURN_STATUS_POLL_MS = 2500;
 const RETURN_STATUS_MAX_ATTEMPTS = 7;
 const primaryCtaClass =
-  "h-11 w-full bg-red-600 text-base font-semibold text-white hover:bg-red-700 focus-visible:ring-red-500/30";
+  "h-11 w-full text-base font-semibold";
 const secondaryCtaClass =
   "h-11 w-full border-slate-700 bg-transparent text-base font-semibold text-slate-200 hover:border-red-700 hover:bg-red-700 hover:text-white";
 
@@ -452,7 +452,7 @@ export function CheckoutPageContent({
               >
                 Volver al carrito
               </ActionLink>
-              <ActionLink href="/productos" className="bg-red-600 font-semibold text-white hover:bg-red-700">
+              <ActionLink href="/productos" variant="brand" className="font-semibold">
                 Ir a productos
               </ActionLink>
             </div>
@@ -615,8 +615,9 @@ export function CheckoutPageContent({
                 ) : null}
                 <Button
                   type="submit"
+                  variant="brand"
                   disabled={loading || cart.items.length === 0}
-                  className="h-12 w-full bg-red-600 text-base font-semibold text-white hover:bg-red-700 disabled:bg-slate-800 disabled:text-slate-500"
+                  className="h-12 w-full text-base font-semibold disabled:bg-slate-800 disabled:text-slate-500"
                 >
                   {loading ? (
                     <Loader2 className="animate-spin" data-icon="inline-start" />
@@ -883,7 +884,7 @@ function clearPendingCheckoutOrderMarker() {
 }
 
 type ActionLinkProps = ComponentProps<typeof Link> & {
-  variant?: "default" | "outline" | "ghost" | "destructive" | "secondary" | "link";
+  variant?: "default" | "brand" | "outline" | "ghost" | "destructive" | "secondary" | "link";
   size?: "default" | "xs" | "sm" | "lg" | "icon" | "icon-xs" | "icon-sm" | "icon-lg";
 };
 
@@ -1049,7 +1050,7 @@ function ReturnActions({
           </CardDescription>
         </CardHeader>
           <CardFooter className="flex flex-col gap-4 border-slate-800 bg-slate-950/80 px-6 py-6 sm:px-8 sm:py-8">
-          <ActionLink href="/cuenta/pedidos" className="w-full bg-red-600 text-white hover:bg-red-700">
+          <ActionLink href="/cuenta/pedidos" variant="brand" className="w-full">
             Ver mis pedidos
           </ActionLink>
           <ActionLink
@@ -1076,6 +1077,7 @@ function ReturnActions({
         <CardFooter className="flex flex-col gap-4 border-slate-800 bg-slate-950/80 px-6 py-6 sm:px-8 sm:py-8">
           <ActionLink
             href={`/cuenta/pedidos/${order.id}`}
+            variant="brand"
             className={primaryCtaClass}
           >
             Ver detalle del pedido
@@ -1102,7 +1104,7 @@ function ReturnActions({
           </CardDescription>
         </CardHeader>
         <CardFooter className="flex flex-col gap-4 border-slate-800 bg-slate-950/80 px-6 py-6 sm:px-8 sm:py-8">
-          <ActionLink href="/carrito" className="w-full bg-red-600 text-white hover:bg-red-700">
+          <ActionLink href="/carrito" variant="brand" className="w-full">
             Volver al carrito
           </ActionLink>
           <ActionLink
@@ -1128,6 +1130,7 @@ function ReturnActions({
       <CardFooter className="flex flex-col gap-4 border-slate-800 bg-slate-950/80 px-6 py-6 sm:px-8 sm:py-8">
         <ActionLink
           href={`/cuenta/pedidos/${order.id}`}
+          variant="brand"
           className={primaryCtaClass}
         >
           Ver detalle del pedido

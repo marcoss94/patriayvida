@@ -118,8 +118,8 @@ export function CartPreviewSheet() {
               href="/carrito"
               onClick={close}
               className={cn(
-                buttonVariants({ variant: "default" }),
-                "h-11 w-full bg-red-600 text-base font-semibold text-white hover:bg-red-700 focus-visible:ring-red-500/30"
+                buttonVariants({ variant: "brand" }),
+                "h-11 w-full text-base font-semibold"
               )}
             >
               Ir al carrito

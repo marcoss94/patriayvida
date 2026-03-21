@@ -296,7 +296,7 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
           {statusFilter !== "all" ? <input type="hidden" name="status" value={statusFilter} /> : null}
 
           <div className="flex flex-wrap items-end gap-2">
-            <Button type="submit" className="bg-red-600 text-white hover:bg-red-700">
+            <Button type="submit" variant="brand">
               Aplicar
             </Button>
             {hasActiveFilters ? (
@@ -370,11 +370,11 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
                         href={`/admin/pedidos/${order.id}`}
                         className={cn(
                            buttonVariants({
+                             variant: "brand",
                              size: "sm",
-                             className:
-                                "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500/30",
-                            })
-                          )}
+                             className: "text-white",
+                             })
+                           )}
                         >
                         Ver detalle
                       </Link>

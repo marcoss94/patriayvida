@@ -264,8 +264,8 @@ export default async function PedidoDetallePage({ params }: PedidoDetallePagePro
                 href="/productos"
                 className={cn(
                   buttonVariants({
-                    className:
-                      "h-11 w-full bg-red-600 text-base font-semibold text-white hover:bg-red-700 focus-visible:ring-red-500/30",
+                    variant: "brand",
+                    className: "h-11 w-full text-base font-semibold",
                   })
                 )}
               >
