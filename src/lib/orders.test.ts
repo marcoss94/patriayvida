@@ -2,9 +2,15 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   canTransitionOrderStatus,
+  formatOrderDate,
+  formatOrderDateCompact,
   getAllowedStatusTransitions,
   getPaymentStatusMeta,
 } from "@/lib/orders";
+
+function normalizeDateOutput(value: string) {
+  return value.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+}
 
 describe("orders transition guards", () => {
   it("allows forward transitions and blocks invalid jumps", () => {
@@ -45,5 +51,18 @@ describe("orders payment status mapping", () => {
       label: "Pago rechazado",
       tone: "danger",
     });
+  });
+});
+
+describe("orders date formatting", () => {
+  it("formats order dates in Uruguay business timezone", () => {
+    const value = "2026-03-21T16:14:00.000Z";
+
+    assert.equal(normalizeDateOutput(formatOrderDate(value)), "21 mar. 2026, 1:14 p. m.");
+    assert.equal(normalizeDateOutput(formatOrderDateCompact(value)), "21/3/26, 1:14 p. m.");
+  });
+
+  it("returns the original value when the timestamp is invalid", () => {
+    assert.equal(formatOrderDate("not-a-date"), "not-a-date");
   });
 });

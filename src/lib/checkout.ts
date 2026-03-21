@@ -72,6 +72,15 @@ export type CheckoutStoreConfig = {
   contactPhone: string | null;
 };
 
+export type CheckoutOrderLine = {
+  variantId: string;
+  quantity: number;
+  unitPrice: number;
+  productName: string;
+  variantName: string;
+  size: string | null;
+};
+
 export function normalizeCheckoutPayload(payload: CheckoutPayload): CheckoutPayload {
   return {
     ...payload,
@@ -100,6 +109,33 @@ export function getShippingCost({
   distanceKm: number | null;
 }): number {
   return getShippingAmount(distanceKm, deliveryMethod);
+}
+
+export function buildMercadoPagoPreferenceItems(
+  orderLines: CheckoutOrderLine[],
+  shippingCost: number
+) {
+  const items = orderLines.map((line) => ({
+    id: line.variantId,
+    title: line.size ? `${line.productName} - ${line.size}` : `${line.productName} - ${line.variantName}`,
+    description: `${line.productName} / ${line.variantName}`,
+    quantity: line.quantity,
+    unit_price: line.unitPrice,
+    currency_id: "UYU" as const,
+  }));
+
+  if (shippingCost > 0) {
+    items.push({
+      id: "shipping",
+      title: "Costo de envio",
+      description: "Entrega a domicilio",
+      quantity: 1,
+      unit_price: shippingCost,
+      currency_id: "UYU" as const,
+    });
+  }
+
+  return items;
 }
 
 export function canOfferPickup(storeConfig: Pick<CheckoutStoreConfig, "pickupAddress">): boolean {

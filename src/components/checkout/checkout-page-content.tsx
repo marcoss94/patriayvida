@@ -34,7 +34,7 @@ import {
   type DeliveryMethod,
   type CheckoutStoreConfig,
 } from "@/lib/checkout";
-import { getOrderStatusMeta, getPaymentStatusMeta } from "@/lib/orders";
+import { formatOrderDateCompact, getOrderStatusMeta, getPaymentStatusMeta } from "@/lib/orders";
 import { SHIPPING_BASE_UYU } from "@/lib/shipping-pricing";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/currency";
@@ -1205,14 +1205,5 @@ function getReturnMessage(
 
 
 function formatUpdatedAt(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("es-UY", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
+  return formatOrderDateCompact(value);
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Json } from "@/types/database";
 import {
+  buildMercadoPagoPreferenceItems,
   checkoutPayloadSchema,
   getShippingCost,
   normalizeCheckoutPayload,
@@ -573,15 +574,11 @@ export async function POST(request: NextRequest) {
         order_id: order.id,
         user_id: user.id,
         delivery_method: payload.deliveryMethod,
+        subtotal_uyu: subtotal,
+        shipping_cost_uyu: shippingCost,
+        total_uyu: total,
       },
-      items: orderLines.map((line) => ({
-        id: line.variantId,
-        title: line.size ? `${line.productName} - ${line.size}` : `${line.productName} - ${line.variantName}`,
-        description: `${line.productName} / ${line.variantName}`,
-        quantity: line.quantity,
-        unit_price: line.unitPrice,
-        currency_id: "UYU",
-      })),
+      items: buildMercadoPagoPreferenceItems(orderLines, shippingCost),
     });
 
     const redirectUrl = getCheckoutRedirectUrl(preference);

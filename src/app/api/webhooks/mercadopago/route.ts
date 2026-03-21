@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import {
   buildMercadoPagoManifest,
+  normalizeMercadoPagoNotificationTopic,
   parseMercadoPagoSignatureHeader,
+  resolveMercadoPagoWebhookRouteDecision,
   verifyMercadoPagoSignature,
+  type MercadoPagoNotificationTopic,
 } from "@/lib/mercadopago-webhook";
 import {
   getMercadoPagoMerchantOrder,
@@ -43,12 +46,6 @@ const webhookNotificationSchema = z
 type OrdersRow = Database["public"]["Tables"]["orders"]["Row"];
 type OrdersUpdate = Database["public"]["Tables"]["orders"]["Update"];
 
-type NotificationTopic =
-  | "payment"
-  | "merchant_order"
-  | "preference"
-  | "unknown";
-
 type ReconciliationResult = {
   orderId: string | null;
   action: "updated" | "noop" | "ignored";
@@ -58,23 +55,16 @@ type ReconciliationResult = {
   mpPaymentId?: string | null;
 };
 
-function normalizeTopic(value: string | null | undefined): NotificationTopic {
-  switch (value) {
-    case "payment":
-      return "payment";
-    case "merchant_order":
-      return "merchant_order";
-    case "preference":
-      return "preference";
-    default:
-      return "unknown";
-  }
+function normalizeTopic(
+  value: string | null | undefined,
+): MercadoPagoNotificationTopic {
+  return normalizeMercadoPagoNotificationTopic(value);
 }
 
 function getNotificationTopic(
   request: NextRequest,
   payload: z.infer<typeof webhookNotificationSchema>,
-): NotificationTopic {
+): MercadoPagoNotificationTopic {
   return normalizeTopic(
     payload.type ??
       payload.topic ??
@@ -675,42 +665,24 @@ export async function POST(request: NextRequest) {
   }
 
   const signatureCheck = verifyWebhookSignature(request, parsed.data);
+  const routeDecision = resolveMercadoPagoWebhookRouteDecision({
+    hasResourceId: Boolean(resourceId),
+    signatureOk: signatureCheck.ok,
+    signatureMode: signatureCheck.mode,
+  });
 
   if (!signatureCheck.ok) {
-    if (isProductionRuntime()) {
-      console.info("Mercado Pago webhook rejected", {
-        topic,
-        resourceId,
-        notificationId,
-        requestId: signatureCheck.requestId,
-        mode: webhookSecurityMode,
-        reason: signatureCheck.reason,
-        diagnosticCode: signatureCheck.reason,
-        hasSignatureHeader: Boolean(request.headers.get("x-signature")),
-      });
-
-      console.error("Mercado Pago webhook signature validation failed", {
-        topic,
-        resourceId,
-        notificationId,
-        requestId: signatureCheck.requestId,
-        reason: signatureCheck.reason,
-        diagnosticCode: signatureCheck.reason,
-        hasSignatureHeader: Boolean(request.headers.get("x-signature")),
-      });
-
-      return NextResponse.json(
-        { received: false, reason: signatureCheck.reason },
-        { status: 401 },
-      );
-    }
-
-    console.warn("Mercado Pago webhook signature mismatch tolerated in development", {
+    console.warn("Mercado Pago webhook accepted without signature verification", {
       topic,
       resourceId,
       notificationId,
       requestId: signatureCheck.requestId,
+      runtime: isProductionRuntime() ? "production" : "development",
+      mode: webhookSecurityMode,
       reason: signatureCheck.reason,
+      diagnosticCode: signatureCheck.reason,
+      hasSignatureHeader: Boolean(request.headers.get("x-signature")),
+      sourceOfTruth: "mercadopago_api",
     });
   }
 
@@ -720,9 +692,11 @@ export async function POST(request: NextRequest) {
     notificationId,
     requestId,
     mode: webhookSecurityMode,
+    verificationStatus: routeDecision.verificationStatus,
     signatureReason: signatureCheck.reason,
     matchedSecret: signatureCheck.matchedSecret,
     manifestMatched: signatureCheck.manifestMatched,
+    sourceOfTruth: "mercadopago_api",
   });
 
   if (signatureCheck.mode === "skipped") {
@@ -735,6 +709,19 @@ export async function POST(request: NextRequest) {
         requestId: signatureCheck.requestId,
         reason: signatureCheck.reason,
       },
+    );
+  }
+
+  if (!routeDecision.shouldReconcile) {
+    return NextResponse.json(
+      {
+        received: true,
+        topic,
+        resourceId,
+        verificationStatus: routeDecision.verificationStatus,
+        ignored: true,
+      },
+      { status: routeDecision.responseStatus },
     );
   }
 
@@ -797,13 +784,14 @@ export async function POST(request: NextRequest) {
       received: true,
       topic,
       resourceId,
+      verificationStatus: routeDecision.verificationStatus,
       orderId: result.orderId,
       action: result.action,
       reason: result.reason,
       mpStatus: result.mpStatus ?? null,
       status: result.status ?? null,
       mpPaymentId: result.mpPaymentId ?? null,
-    });
+    }, { status: routeDecision.responseStatus });
   } catch (error) {
     console.error("Mercado Pago webhook reconciliation failed", {
       topic,

@@ -1,5 +1,17 @@
 import crypto from "node:crypto";
 
+export type MercadoPagoNotificationTopic =
+  | "payment"
+  | "merchant_order"
+  | "preference"
+  | "unknown";
+
+export type MercadoPagoWebhookRouteDecision = {
+  shouldReconcile: boolean;
+  verificationStatus: "verified" | "unverified" | "skipped";
+  responseStatus: 200 | 202;
+};
+
 function normalizeSignatureHash(value: string) {
   return value.trim().toLowerCase();
 }
@@ -53,6 +65,57 @@ export function parseMercadoPagoSignatureHeader(xSignatureRaw: string | null) {
   }
 
   return { ts, hash };
+}
+
+export function normalizeMercadoPagoNotificationTopic(
+  value: string | null | undefined,
+): MercadoPagoNotificationTopic {
+  switch (value) {
+    case "payment":
+      return "payment";
+    case "merchant_order":
+      return "merchant_order";
+    case "preference":
+      return "preference";
+    default:
+      return "unknown";
+  }
+}
+
+export function resolveMercadoPagoWebhookRouteDecision(params: {
+  hasResourceId: boolean;
+  signatureOk: boolean;
+  signatureMode: "enforced" | "skipped";
+}) {
+  if (!params.hasResourceId) {
+    return {
+      shouldReconcile: false,
+      verificationStatus: params.signatureMode === "skipped" ? "skipped" : params.signatureOk ? "verified" : "unverified",
+      responseStatus: 202,
+    } satisfies MercadoPagoWebhookRouteDecision;
+  }
+
+  if (params.signatureMode === "skipped") {
+    return {
+      shouldReconcile: true,
+      verificationStatus: "skipped",
+      responseStatus: 200,
+    } satisfies MercadoPagoWebhookRouteDecision;
+  }
+
+  if (params.signatureOk) {
+    return {
+      shouldReconcile: true,
+      verificationStatus: "verified",
+      responseStatus: 200,
+    } satisfies MercadoPagoWebhookRouteDecision;
+  }
+
+  return {
+    shouldReconcile: true,
+    verificationStatus: "unverified",
+    responseStatus: 200,
+  } satisfies MercadoPagoWebhookRouteDecision;
 }
 
 export function buildMercadoPagoManifest(params: {

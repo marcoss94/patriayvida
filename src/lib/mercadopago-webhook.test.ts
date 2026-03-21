@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import {
   buildMercadoPagoManifest,
   createMercadoPagoSignature,
+  normalizeMercadoPagoNotificationTopic,
   parseMercadoPagoSignatureHeader,
+  resolveMercadoPagoWebhookRouteDecision,
   verifyMercadoPagoSignature,
   verifyMercadoPagoSignatureWithRotation,
 } from "@/lib/mercadopago-webhook";
@@ -78,5 +80,58 @@ describe("mercadopago webhook signature helpers", () => {
 
     assert.equal(verification.ok, true);
     assert.equal(verification.matchedSecretIndex, 1);
+  });
+
+  it("normalizes supported topics and buckets unknown ones", () => {
+    assert.equal(normalizeMercadoPagoNotificationTopic("payment"), "payment");
+    assert.equal(normalizeMercadoPagoNotificationTopic("merchant_order"), "merchant_order");
+    assert.equal(normalizeMercadoPagoNotificationTopic("preference"), "preference");
+    assert.equal(normalizeMercadoPagoNotificationTopic("plan"), "unknown");
+    assert.equal(normalizeMercadoPagoNotificationTopic(null), "unknown");
+  });
+
+  it("keeps reconciling when signature mismatches but ids exist", () => {
+    assert.deepEqual(
+      resolveMercadoPagoWebhookRouteDecision({
+        hasResourceId: true,
+        signatureOk: false,
+        signatureMode: "enforced",
+      }),
+      {
+        shouldReconcile: true,
+        verificationStatus: "unverified",
+        responseStatus: 200,
+      },
+    );
+  });
+
+  it("returns 202 when intake cannot reconcile due to missing resource id", () => {
+    assert.deepEqual(
+      resolveMercadoPagoWebhookRouteDecision({
+        hasResourceId: false,
+        signatureOk: true,
+        signatureMode: "enforced",
+      }),
+      {
+        shouldReconcile: false,
+        verificationStatus: "verified",
+        responseStatus: 202,
+      },
+    );
+  });
+
+  it("marks missing-secret mode as skipped while still allowing reconciliation", () => {
+    assert.deepEqual(
+      resolveMercadoPagoWebhookRouteDecision({
+        hasResourceId: true,
+        signatureOk: true,
+        signatureMode: "skipped",
+      }),
+      {
+        shouldReconcile: true,
+        verificationStatus: "skipped",
+        responseStatus: 200,
+      },
+    );
   });
 });

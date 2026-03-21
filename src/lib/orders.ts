@@ -13,6 +13,8 @@ export const BUSINESS_ORDER_STATUSES = [
 
 export type BusinessOrderStatus = (typeof BUSINESS_ORDER_STATUSES)[number];
 
+export const BUSINESS_TIME_ZONE = "America/Montevideo";
+
 const ORDER_STATUS_TRANSITIONS: Record<BusinessOrderStatus, readonly BusinessOrderStatus[]> = {
   pending: ["paid", "preparing", "cancelled"],
   paid: ["preparing", "cancelled"],
@@ -68,7 +70,7 @@ export function canTransitionOrderStatus(from: OrderRow["status"], to: OrderRow[
   return ORDER_STATUS_TRANSITIONS[from].includes(to);
 }
 
-export function formatOrderDate(value: string) {
+function formatBusinessDateTime(value: string, options: Intl.DateTimeFormatOptions) {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
@@ -76,9 +78,23 @@ export function formatOrderDate(value: string) {
   }
 
   return new Intl.DateTimeFormat("es-UY", {
+    ...options,
+    timeZone: BUSINESS_TIME_ZONE,
+  }).format(date);
+}
+
+export function formatOrderDate(value: string) {
+  return formatBusinessDateTime(value, {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(date);
+  });
+}
+
+export function formatOrderDateCompact(value: string) {
+  return formatBusinessDateTime(value, {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 }
 
 export function getOrderStatusMeta(status: OrderRow["status"]) {
