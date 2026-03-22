@@ -110,7 +110,7 @@ const mercadoPagoButtonClass =
 
 function getShippingQuoteHelperText(quote: ShippingQuote | null, loading: boolean, error: string | null) {
   if (loading) {
-    return "Calculando distancia...";
+    return "Calculando el envío para tu dirección...";
   }
 
   if (quote && quote.distanceKm !== null) {
@@ -118,7 +118,7 @@ function getShippingQuoteHelperText(quote: ShippingQuote | null, loading: boolea
   }
 
   if (error) {
-    return `Sin geocodificación exacta: aplicamos envío base (${formatPrice(SHIPPING_BASE_UYU)}).`;
+    return `No pudimos ubicar la dirección con precisión. Aplicamos el envío base (${formatPrice(SHIPPING_BASE_UYU)}).`;
   }
 
   return "Completá dirección y ciudad para estimar el envío.";
@@ -449,7 +449,7 @@ export function CheckoutPageContent({
               Estamos preparando tu pedido.
             </CardTitle>
             <CardDescription className="max-w-2xl text-base text-slate-400">
-              En un instante recuperamos los productos que elegiste para que puedas continuar.
+              En unos segundos recuperamos tus productos para que puedas seguir con la compra.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -483,10 +483,10 @@ export function CheckoutPageContent({
           <CardHeader className="gap-4 border-b border-slate-800 px-6 py-6 sm:px-8 sm:py-8">
               <Badge className="w-fit bg-slate-800 text-slate-200">Carrito vacío</Badge>
               <CardTitle className="text-3xl font-bold text-white">
-                Primero elegí tus prendas.
+                Primero armá tu pedido.
               </CardTitle>
               <CardDescription className="max-w-2xl text-base text-slate-400">
-                Sumá tus productos al carrito y volvé cuando estés lista o listo para finalizar la compra.
+                Sumá productos al carrito y volvé cuando tengas todo listo para pagar.
               </CardDescription>
           </CardHeader>
           <CardFooter className="flex flex-col gap-4 border-slate-800 bg-slate-950/80 px-6 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-8">
@@ -522,7 +522,7 @@ export function CheckoutPageContent({
                   Estás a un paso de recibir tu pedido.
                 </h1>
                 <p className="max-w-2xl text-sm text-slate-400 sm:text-base">
-                  Completá tus datos y continuá a Mercado Pago para terminar el pago de forma segura.
+                  Completá tus datos y seguí a Mercado Pago para terminar el pago de forma segura.
                 </p>
               </div>
               <ActionLink
@@ -576,9 +576,9 @@ export function CheckoutPageContent({
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex flex-col gap-2">
                       <p className="text-sm font-semibold text-white">Entrega</p>
-                      <p className="text-sm text-slate-400">
-                        Elegí cómo querés recibir el pedido. El total se recalcula en tiempo real.
-                      </p>
+                        <p className="text-sm text-slate-400">
+                          Elegí cómo querés recibir el pedido. El total se actualiza en tiempo real.
+                        </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <DeliveryMethodButton
@@ -649,12 +649,12 @@ export function CheckoutPageContent({
               </CardContent>
 
               <CardFooter className="flex flex-col items-start gap-4 border-slate-800 bg-slate-950/80 px-6 py-6 sm:px-8 sm:py-8">
-                <div className="flex items-start gap-4 rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-4 text-sm text-slate-300">
-                  <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-300" />
-                  <p>
-                    Tu pedido se confirma cuando el pago queda acreditado. Si algo interrumpe el proceso, vas a poder retomarlo sin volver a empezar.
-                  </p>
-                </div>
+                  <div className="flex items-start gap-4 rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-4 text-sm text-slate-300">
+                    <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-300" />
+                    <p>
+                      Tu pedido queda confirmado cuando el pago se acredita. Si algo se interrumpe, vas a poder retomarlo sin empezar de cero.
+                    </p>
+                  </div>
                 {submitError ? (
                   <div className="w-full rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-4 text-sm text-red-100">
                     {submitError}
@@ -694,7 +694,7 @@ export function CheckoutPageContent({
                   >
                     {loading
                       ? "Te estamos redirigiendo al checkout seguro. No cierres esta ventana."
-                      : "Pagá de forma segura"}
+                      : "Pago seguro con Mercado Pago"}
                   </p>
                 </div>
               </CardFooter>
@@ -706,7 +706,7 @@ export function CheckoutPageContent({
                   <Badge className="w-fit bg-red-600/90 text-white">Resumen</Badge>
                   <CardTitle className="text-2xl font-bold text-white">Orden actual</CardTitle>
                   <CardDescription className="text-sm text-slate-400">
-                    Revisá tus productos, el método de entrega y el total antes de continuar.
+                    Revisá tus productos, la entrega y el total antes de continuar.
                   </CardDescription>
                 </CardHeader>
 
@@ -765,7 +765,7 @@ export function CheckoutPageContent({
                   <div className="w-full rounded-2xl border border-slate-800 bg-slate-900/55 px-4 py-4">
                     <p className="font-semibold text-white">Pago seguro con Mercado Pago</p>
                     <p className="mt-2 text-sm text-slate-400">
-                      Te redirigimos al checkout seguro de Mercado Pago para completar el pago y volver después a tu pedido.
+                      Te redirigimos al checkout seguro de Mercado Pago. Cuando termines, volvés acá para seguir el estado del pedido.
                     </p>
                   </div>
                   <ActionLink

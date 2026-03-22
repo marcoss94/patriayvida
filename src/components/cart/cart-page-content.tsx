@@ -45,7 +45,7 @@ export function CartPageContent() {
               Estamos recuperando tu carrito.
             </CardTitle>
             <CardDescription className="max-w-2xl text-base text-slate-400">
-              En un instante vas a volver a ver los productos que elegiste.
+              En unos segundos volvés a ver los productos que habías elegido.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -63,10 +63,10 @@ export function CartPageContent() {
             </div>
             <Badge className="w-fit bg-slate-800 text-slate-200">Carrito vacío</Badge>
             <CardTitle className="text-3xl font-bold text-white">
-              Todavía no sumaste ninguna prenda a la trinchera.
+              Todavía no agregaste productos al carrito.
             </CardTitle>
             <CardDescription className="max-w-2xl text-base text-slate-400">
-              Volvé al catálogo, elegí tus prendas favoritas y armá tu pedido desde ahí.
+              Volvé al catálogo, elegí tus prendas favoritas y armá el pedido desde ahí.
             </CardDescription>
           </CardHeader>
           <CardFooter className="flex-col gap-4 border-slate-800 bg-slate-950/70 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
@@ -214,6 +214,9 @@ export function CartPageContent() {
             <SummaryRow label="Variantes" value={String(cart.items.length)} />
             <Separator className="bg-slate-800" />
             <SummaryRow label="Subtotal" value={formatPrice(subtotal)} prominent />
+            <p className="text-xs leading-5 text-slate-500">
+              El envío y la confirmación del pago se calculan en el checkout.
+            </p>
           </CardContent>
 
           <CardFooter className="flex-col gap-3 border-slate-800 bg-slate-950/80 px-6 py-5 sm:px-7">

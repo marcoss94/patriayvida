@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/currency";
 import {
   ADMIN_ORDER_STATUS_TABS,
-  FETCH_LIMIT,
   PAGE_SIZE,
   buildAdminOrdersListPath,
   getAdminOrdersNoticeClasses,
@@ -31,13 +30,11 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
     statusFilter,
     query,
     notice,
-    mappedOrders,
-    filteredOrders,
+    totalMatchingOrders,
     currentPage,
     totalPages,
     pageOrders,
     hasActiveFilters,
-    hasMoreResults,
   } = await loadAdminOrdersPageData(await searchParams);
 
   return (
@@ -59,14 +56,12 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Pedidos visibles</p>
-              <p className="mt-3 text-2xl font-bold text-white">{filteredOrders.length}</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Pedidos encontrados</p>
+              <p className="mt-3 text-2xl font-bold text-white">{totalMatchingOrders}</p>
             </div>
             <div className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Último pedido</p>
-              <p className="mt-3 text-sm font-medium text-slate-100">
-                {mappedOrders[0] ? formatOrderDate(mappedOrders[0].created_at) : "Sin pedidos registrados"}
-              </p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Más reciente en pantalla</p>
+              <p className="mt-3 text-sm font-medium text-slate-100">{pageOrders[0] ? formatOrderDate(pageOrders[0].created_at) : "Sin pedidos registrados"}</p>
             </div>
             <div className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Suma de la página</p>
@@ -125,17 +120,29 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
           </div>
         </form>
 
-        {hasMoreResults ? (
-          <p className="text-xs text-slate-500">
-            Mostrando los últimos {FETCH_LIMIT} pedidos para mantener la vista ágil.
-          </p>
-        ) : null}
+        <p className="text-xs text-slate-500">
+          {totalMatchingOrders === 0
+            ? "No hay coincidencias con los filtros actuales."
+            : `Mostrando ${pageOrders.length} pedido${pageOrders.length === 1 ? "" : "s"} en esta página sobre ${totalMatchingOrders} resultado${totalMatchingOrders === 1 ? "" : "s"}.`}
+        </p>
       </section>
 
       {pageOrders.length === 0 ? (
         <section className="rounded-2xl border border-slate-800 bg-slate-950/60 p-6">
-          <h3 className="text-xl font-bold text-white">No encontramos pedidos</h3>
-          <p className="mt-2 text-sm text-slate-400">Probá cambiar los filtros para ver más resultados.</p>
+          <div className="flex size-12 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900/70 text-slate-300">
+            <ClipboardList className="size-5" />
+          </div>
+          <h3 className="mt-4 text-xl font-bold text-white">No encontramos pedidos</h3>
+          <p className="mt-2 max-w-2xl text-sm text-slate-400">
+            Ajustá el estado o la búsqueda para revisar otros pedidos del historial.
+          </p>
+          {hasActiveFilters ? (
+            <div className="mt-5">
+              <Link href="/admin/pedidos" className={cn(buttonVariants({ variant: "outline" }))}>
+                Limpiar filtros
+              </Link>
+            </div>
+          ) : null}
         </section>
       ) : (
         <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/60">
@@ -223,7 +230,7 @@ export default async function AdminPedidosPage({ searchParams }: AdminOrdersPage
         </section>
       )}
 
-      {filteredOrders.length > PAGE_SIZE ? (
+      {totalMatchingOrders > PAGE_SIZE ? (
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-4">
           <p className="text-sm text-slate-400">
             Página {currentPage} de {totalPages}

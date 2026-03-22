@@ -25,7 +25,7 @@ export default function SobreNosotrosPage() {
             </h1>
             <p className="text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
               Somos una tienda creada para quienes usan la ropa como una forma
-              de decir quiénes son. Diseño, cultura y actitud en cada pieza.
+              de decir quiénes son. Diseño, cultura y una compra sin vueltas en cada pieza.
             </p>
           </div>
         </PageContainer>
@@ -60,7 +60,7 @@ export default function SobreNosotrosPage() {
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               Apostamos por autenticidad, calidad y respeto por la comunidad.
               Nuestra misión es acercar productos con historia, carácter y una
-              experiencia de compra simple.
+              experiencia de compra clara de principio a fin.
             </p>
           </article>
         </div>
@@ -75,6 +75,17 @@ export default function SobreNosotrosPage() {
             )}
           >
             Ver catálogo
+          </Link>
+          <Link
+            href="/cuenta/pedidos"
+            className={cn(
+              buttonVariants({
+                variant: "outline",
+                className: "rounded-lg px-6",
+              })
+            )}
+          >
+            Seguir un pedido
           </Link>
         </div>
       </PageContainer>

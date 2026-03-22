@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { resolveIsAdmin } from "@/lib/admin-auth";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -37,9 +38,13 @@ export async function Header() {
       .from("profiles")
       .select("is_admin, full_name")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
-    isAdmin = profile?.is_admin ?? false;
+    isAdmin = resolveIsAdmin({
+      userEmail: user.email,
+      configuredAdminEmail: process.env.ADMIN_EMAIL,
+      profileIsAdmin: profile?.is_admin,
+    });
     fullName = profile?.full_name ?? null;
   }
 

@@ -144,7 +144,12 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           </Badge>
 
           {/* Product Name */}
-          <h1 className="text-4xl font-bold text-white">{product.name}</h1>
+          <div className="space-y-3">
+            <h1 className="text-4xl font-bold text-white">{product.name}</h1>
+            <p className="max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">
+              Elegí talle y cantidad para sumar esta prenda al carrito sin salir de la ficha.
+            </p>
+          </div>
 
           <ProductPurchasePanel
             product={{
@@ -167,13 +172,13 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           <div>
             <h3 className="mb-2 font-semibold text-white">Envío</h3>
             <p className="text-sm text-slate-400">
-              Envíos a todo el país. Calculá el costo en el carrito.
+              Envíos a todo el país. El costo final se confirma en checkout según la entrega que elijas.
             </p>
           </div>
           <div>
             <h3 className="mb-2 font-semibold text-white">Cambios y devoluciones</h3>
             <p className="text-sm text-slate-400">
-              Tenés 30 días para cambios. Consultá nuestras políticas.
+              Tenés 30 días para gestionar cambios. Si necesitás ayuda, escribinos desde tu cuenta.
             </p>
           </div>
         </div>

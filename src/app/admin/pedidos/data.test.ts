@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  FETCH_LIMIT,
+  buildAdminOrdersSearchFilter,
   buildAdminOrdersListPath,
   filterAdminOrdersByQuery,
   loadAdminOrdersPageData,
@@ -11,20 +11,20 @@ import {
 import { createSupabaseRouteMock, getFilterValue } from "@/test-utils/supabase-route-mock";
 
 describe("admin orders list data", () => {
-  it("applies status filtering at query time and keeps pagination deterministic", async () => {
-    const rows = Array.from({ length: 21 }, (_, index) => ({
-      id: `order-${index + 1}`,
-      created_at: `2026-03-${String(21 - Math.min(index, 20)).padStart(2, "0")}T18:00:00.000Z`,
+  it("applies status filtering and pagination at query time", async () => {
+    const rows = Array.from({ length: 20 }, (_, index) => ({
+      id: `order-${index + 21}`,
+      created_at: `2026-03-${String(20 - index).padStart(2, "0")}T18:00:00.000Z`,
       status: "paid",
       mp_status: "approved:accredited",
-      mp_payment_id: `mp-${index + 1}`,
+      mp_payment_id: `mp-${index + 21}`,
       subtotal: 300,
       shipping_cost: 180,
       total: 480,
       delivery_method: "shipping",
       shipping_address: {
-        full_name: index === 20 ? "Ada Lovelace" : `Cliente ${index + 1}`,
-        email: index === 20 ? "ada@example.com" : `cliente${index + 1}@example.com`,
+        full_name: `Cliente ${index + 21}`,
+        email: `cliente${index + 21}@example.com`,
         address: "18 de Julio 1234",
         city: "Montevideo",
       },
@@ -35,21 +35,32 @@ describe("admin orders list data", () => {
       resolve(call) {
         assert.equal(call.table, "orders");
         assert.equal(getFilterValue(call, "eq", "status"), "paid");
-        assert.equal(call.limit, FETCH_LIMIT);
+        assert.deepEqual(call.selectOptions, { count: "exact" });
+        assert.deepEqual(call.range, { from: 20, to: 39 });
 
-        return { data: rows, error: null };
+        return { data: rows, error: null, count: 55 };
       },
     });
 
-    const result = await loadAdminOrdersPageData(
-      { status: "paid", q: "ada@example.com", page: "2" },
-      { createAdminClient: () => supabase as never }
+    const result = await loadAdminOrdersPageData({ status: "paid", page: "2" }, { createAdminClient: () => supabase as never });
+
+    assert.equal(result.totalMatchingOrders, 55);
+    assert.equal(result.currentPage, 2);
+    assert.equal(result.totalPages, 3);
+    assert.equal(result.pageOrders.length, 20);
+    assert.equal(result.pageOrders[0]?.customerEmail, "cliente21@example.com");
+  });
+
+  it("builds a DB search filter that preserves order references and customer lookup", () => {
+    assert.equal(
+      buildAdminOrdersSearchFilter("PYV-Abc12345"),
+      "id.ilike.abc12345*,id.ilike.*PYV-Abc12345*,shipping_address->>full_name.ilike.*PYV-Abc12345*,shipping_address->>email.ilike.*PYV-Abc12345*,profile.full_name.ilike.*PYV-Abc12345*"
     );
 
-    assert.equal(result.filteredOrders.length, 1);
-    assert.equal(result.currentPage, 1);
-    assert.equal(result.totalPages, 1);
-    assert.equal(result.pageOrders[0]?.customerEmail, "ada@example.com");
+    assert.equal(
+      buildAdminOrdersSearchFilter("ada@example.com"),
+      "id.ilike.*ada@example.com*,shipping_address->>full_name.ilike.*ada@example.com*,shipping_address->>email.ilike.*ada@example.com*,profile.full_name.ilike.*ada@example.com*"
+    );
   });
 
   it("maps customer and shipping fallbacks for operational visibility", () => {

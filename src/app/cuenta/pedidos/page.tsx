@@ -82,10 +82,18 @@ export default async function PedidosPage({ searchParams }: UserOrdersPageProps)
         </section>
       ) : filteredOrders.length === 0 ? (
         <section className="rounded-2xl border border-slate-800 bg-slate-950/60 p-6">
-          <h3 className="text-xl font-bold text-white">No hay pedidos en este estado</h3>
-          <p className="mt-2 text-sm text-slate-400">
-            Probá con otra pestaña para revisar tu historial completo.
+          <div className="flex size-12 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900/70 text-slate-300">
+            <Package2 className="size-5" />
+          </div>
+          <h3 className="mt-4 text-xl font-bold text-white">No hay pedidos en este estado</h3>
+          <p className="mt-2 max-w-2xl text-sm text-slate-400">
+            Probá con otra pestaña para revisar tu historial completo o ver compras recientes.
           </p>
+          <div className="mt-5">
+            <Link href="/cuenta/pedidos" className={cn(buttonVariants({ variant: "outline" }))}>
+              Ver todos los pedidos
+            </Link>
+          </div>
         </section>
       ) : (
         <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/60">

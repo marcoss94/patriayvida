@@ -26,6 +26,7 @@ export function RouteLoading({
       <div className="flex flex-col items-center gap-3 text-center">
         <Loader2 aria-hidden="true" className="size-6 animate-spin text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{message}</p>
+        <p className="text-xs text-muted-foreground/80">Esto suele demorar apenas unos segundos.</p>
         <span className="sr-only">Actualizando contenido</span>
       </div>
     </div>

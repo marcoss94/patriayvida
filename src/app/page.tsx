@@ -157,7 +157,18 @@ export default async function Home() {
 
           {featuredProducts.length === 0 ? (
             <div className="rounded-2xl border border-border/70 bg-card/40 px-6 py-10 text-center text-muted-foreground">
-              Todavía no hay productos publicados.
+              <p className="text-base font-medium text-foreground">Todavía no hay productos destacados.</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Estamos preparando nuevas publicaciones. Volvé en un rato para ver la próxima tanda.
+              </p>
+              <div className="mt-5">
+                <Link
+                  href="/productos"
+                  className={cn(buttonVariants({ variant: "outline", className: "rounded-lg border-border/70 bg-background/60" }))}
+                >
+                  Ir al catálogo completo
+                </Link>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">

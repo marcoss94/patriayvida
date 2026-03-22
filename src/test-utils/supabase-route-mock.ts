@@ -4,21 +4,31 @@ export type SupabaseQueryCall = {
   table: string;
   action: QueryAction;
   columns?: string;
+  selectOptions?: {
+    count?: "exact";
+    head?: boolean;
+  };
   values?: unknown;
   filters: Array<{
     type: "eq" | "in" | "gte";
     column: string;
     value: unknown;
   }>;
+  orFilter?: string;
   orderBy?: {
     column: string;
     ascending?: boolean;
   };
   limit?: number;
+  range?: {
+    from: number;
+    to: number;
+  };
   resultMode: "many" | "single" | "maybeSingle";
 };
 
 type QueryResult = {
+  count?: number | null;
   data?: unknown;
   error?: unknown;
 };
@@ -41,8 +51,9 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     };
   }
 
-  select(columns: string) {
+  select(columns: string, options?: { count?: "exact"; head?: boolean }) {
     this.call.columns = columns;
+    this.call.selectOptions = options;
 
     if (this.call.action !== "insert" && this.call.action !== "update") {
       this.call.action = "select";
@@ -78,6 +89,11 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  or(filter: string) {
+    this.call.orFilter = filter;
+    return this;
+  }
+
   order(column: string, options?: { ascending?: boolean }) {
     this.call.orderBy = { column, ascending: options?.ascending };
     return this;
@@ -85,6 +101,11 @@ class QueryBuilder implements PromiseLike<QueryResult> {
 
   limit(value: number) {
     this.call.limit = value;
+    return this;
+  }
+
+  range(from: number, to: number) {
+    this.call.range = { from, to };
     return this;
   }
 

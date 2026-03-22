@@ -1,12 +1,63 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-function normalizeEmail(value: string | null | undefined) {
+type AdminAuthUser = {
+  id: string;
+  email?: string | null;
+};
+
+type AdminProfileRecord = {
+  is_admin?: boolean | null;
+};
+
+type AdminAuthSupabase = {
+  auth: {
+    getUser: () => Promise<{ data: { user: AdminAuthUser | null } }>;
+  };
+  from: (table: "profiles") => {
+    select: (columns: string) => {
+      eq: (column: "id", value: string) => {
+        maybeSingle: () => Promise<{ data: AdminProfileRecord | null }>;
+      };
+    };
+  };
+};
+
+type GetAdminAccessOptions = {
+  configuredAdminEmail?: string | null;
+  supabase?: AdminAuthSupabase;
+};
+
+export function normalizeEmail(value: string | null | undefined) {
   return value?.trim().toLowerCase() ?? "";
 }
 
-export async function getAdminAccess() {
-  const supabase = await createClient();
+export function hasAdminEmailAccess(
+  userEmail: string | null | undefined,
+  configuredAdminEmail: string | null | undefined = process.env.ADMIN_EMAIL
+) {
+  const normalizedConfiguredAdminEmail = normalizeEmail(configuredAdminEmail);
+
+  return Boolean(
+    normalizedConfiguredAdminEmail &&
+      normalizeEmail(userEmail) === normalizedConfiguredAdminEmail
+  );
+}
+
+export function resolveIsAdmin(params: {
+  configuredAdminEmail?: string | null;
+  profileIsAdmin?: boolean | null;
+  userEmail?: string | null;
+}) {
+  return (
+    hasAdminEmailAccess(params.userEmail, params.configuredAdminEmail) ||
+    Boolean(params.profileIsAdmin)
+  );
+}
+
+export async function getAdminAccess(options: GetAdminAccessOptions = {}) {
+  const supabase =
+    options.supabase ?? ((await createClient()) as unknown as AdminAuthSupabase);
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -18,9 +69,9 @@ export async function getAdminAccess() {
     } as const;
   }
 
-  const configuredAdminEmail = normalizeEmail(process.env.ADMIN_EMAIL);
+  const configuredAdminEmail = options.configuredAdminEmail;
 
-  if (configuredAdminEmail && normalizeEmail(user.email) === configuredAdminEmail) {
+  if (hasAdminEmailAccess(user.email, configuredAdminEmail)) {
     return {
       user,
       isAdmin: true,
@@ -35,7 +86,11 @@ export async function getAdminAccess() {
 
   return {
     user,
-    isAdmin: profile?.is_admin ?? false,
+    isAdmin: resolveIsAdmin({
+      userEmail: user.email,
+      configuredAdminEmail,
+      profileIsAdmin: profile?.is_admin,
+    }),
   } as const;
 }
 

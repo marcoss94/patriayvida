@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { resolveIsAdmin } from "@/lib/admin-auth";
 import { requireEnv } from "@/lib/env";
 
 export async function updateSession(request: NextRequest) {
@@ -58,9 +59,10 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && request.nextUrl.pathname.startsWith("/admin")) {
-    const configuredAdminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-    const userEmail = user.email?.trim().toLowerCase();
-    let isAdmin = Boolean(configuredAdminEmail && userEmail === configuredAdminEmail);
+    let isAdmin = resolveIsAdmin({
+      userEmail: user.email,
+      configuredAdminEmail: process.env.ADMIN_EMAIL,
+    });
 
     if (!isAdmin) {
       const { data: profile } = await supabase
@@ -69,7 +71,11 @@ export async function updateSession(request: NextRequest) {
         .eq("id", user.id)
         .maybeSingle();
 
-      isAdmin = profile?.is_admin ?? false;
+      isAdmin = resolveIsAdmin({
+        userEmail: user.email,
+        configuredAdminEmail: process.env.ADMIN_EMAIL,
+        profileIsAdmin: profile?.is_admin,
+      });
     }
 
     if (!isAdmin) {

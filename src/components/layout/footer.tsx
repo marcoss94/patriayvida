@@ -15,10 +15,10 @@ export function Footer() {
     <footer className="border-t border-border/80 bg-background/95">
       <PageContainer className="flex flex-col gap-5 py-8 sm:py-10">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
+          <div className="max-w-xl space-y-2">
             <p className="text-lg font-semibold text-foreground">Patria y Vida</p>
             <p className="text-sm text-muted-foreground">
-              Tienda uruguaya con identidad cubana.
+              Tienda uruguaya con identidad cubana, compras simples y seguimiento claro de cada pedido.
             </p>
           </div>
 
@@ -48,9 +48,7 @@ export function Footer() {
 
         <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent" />
 
-        <p className="text-xs text-muted-foreground">
-          © {year} Patria y Vida. Hecho en Uruguay.
-        </p>
+        <p className="text-xs leading-5 text-muted-foreground">© {year} Patria y Vida. Hecho en Uruguay.</p>
       </PageContainer>
     </footer>
   );

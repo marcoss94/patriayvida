@@ -12,7 +12,6 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database";
 
-export const FETCH_LIMIT = 250;
 export const PAGE_SIZE = 20;
 
 type AdminOrderListRow = {
@@ -187,16 +186,61 @@ export function paginateAdminOrders(orders: AdminOrderListItem[], requestedPage:
   };
 }
 
-export async function loadAdminOrdersPageData(
-  searchParams: { status?: string; q?: string; page?: string; notice?: string },
-  deps: {
-    createAdminClient?: typeof createAdminClient;
-  } = {}
-) {
-  const statusFilter = parseAdminOrderStatusFilter(searchParams.status);
-  const query = searchParams.q?.trim() ?? "";
-  const requestedPage = parseAdminOrdersPage(searchParams.page);
-  const admin = (deps.createAdminClient ?? createAdminClient)();
+function sanitizeAdminOrdersSearchValue(value: string) {
+  return value.replace(/[,%()]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function extractAdminOrderReferencePrefix(query: string) {
+  const normalized = query.trim().toLowerCase();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const isReferenceSearch = normalized.startsWith("pyv-") || /^[a-z0-9-]{4,}$/.test(normalized);
+
+  if (!isReferenceSearch) {
+    return null;
+  }
+
+  const withoutPrefix = normalized.startsWith("pyv-") ? normalized.slice(4) : normalized;
+  const compact = withoutPrefix.replace(/[^a-z0-9-]/g, "");
+
+  return compact.length >= 4 ? compact.slice(0, 8) : null;
+}
+
+export function buildAdminOrdersSearchFilter(query: string) {
+  const sanitizedQuery = sanitizeAdminOrdersSearchValue(query);
+
+  if (!sanitizedQuery) {
+    return null;
+  }
+
+  const wildcard = `*${sanitizedQuery}*`;
+  const clauses = [
+    `id.ilike.${wildcard}`,
+    `shipping_address->>full_name.ilike.${wildcard}`,
+    `shipping_address->>email.ilike.${wildcard}`,
+    `profile.full_name.ilike.${wildcard}`,
+  ];
+  const referencePrefix = extractAdminOrderReferencePrefix(query);
+
+  if (referencePrefix) {
+    clauses.unshift(`id.ilike.${referencePrefix}*`);
+  }
+
+  return clauses.join(",");
+}
+
+async function fetchAdminOrdersPage(params: {
+  createAdminClient: typeof createAdminClient;
+  statusFilter: BusinessOrderStatus | "all";
+  query: string;
+  page: number;
+}) {
+  const admin = params.createAdminClient();
+  const pageStart = (params.page - 1) * PAGE_SIZE;
+  const searchFilter = buildAdminOrdersSearchFilter(params.query);
 
   let ordersQuery = admin
     .from("orders")
@@ -214,24 +258,68 @@ export async function loadAdminOrdersPageData(
         shipping_address,
         order_items(quantity),
         profile:profiles!orders_user_id_fkey(full_name)
-      `
+      `,
+      { count: "exact" }
     )
     .order("created_at", { ascending: false })
-    .limit(FETCH_LIMIT);
+    .range(pageStart, pageStart + PAGE_SIZE - 1);
 
-  if (statusFilter !== "all") {
-    ordersQuery = ordersQuery.eq("status", statusFilter);
+  if (params.statusFilter !== "all") {
+    ordersQuery = ordersQuery.eq("status", params.statusFilter);
   }
 
-  const { data, error } = await ordersQuery;
+  if (searchFilter) {
+    ordersQuery = ordersQuery.or(searchFilter);
+  }
+
+  return ordersQuery;
+}
+
+export async function loadAdminOrdersPageData(
+  searchParams: { status?: string; q?: string; page?: string; notice?: string },
+  deps: {
+    createAdminClient?: typeof createAdminClient;
+  } = {}
+) {
+  const statusFilter = parseAdminOrderStatusFilter(searchParams.status);
+  const query = searchParams.q?.trim() ?? "";
+  const requestedPage = parseAdminOrdersPage(searchParams.page);
+  const createClient = deps.createAdminClient ?? createAdminClient;
+
+  const initialPage = await fetchAdminOrdersPage({
+    createAdminClient: createClient,
+    statusFilter,
+    query,
+    page: requestedPage,
+  });
+  let { data, error } = initialPage;
+  const { count } = initialPage;
 
   if (error) {
     throw new Error("No pudimos cargar los pedidos de administracion.");
   }
 
+  const totalMatchingOrders = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalMatchingOrders / PAGE_SIZE));
+  const currentPage = Math.min(requestedPage, totalPages);
+
+  if (currentPage !== requestedPage && totalMatchingOrders > 0) {
+    const fallbackPage = await fetchAdminOrdersPage({
+      createAdminClient: createClient,
+      statusFilter,
+      query,
+      page: currentPage,
+    });
+
+    data = fallbackPage.data;
+    error = fallbackPage.error;
+
+    if (error) {
+      throw new Error("No pudimos cargar los pedidos de administracion.");
+    }
+  }
+
   const mappedOrders = mapAdminOrders((data ?? []) as unknown as AdminOrderListRow[]);
-  const filteredOrders = filterAdminOrdersByQuery(mappedOrders, query);
-  const { currentPage, pageOrders, totalPages } = paginateAdminOrders(filteredOrders, requestedPage);
 
   return {
     statusFilter,
@@ -239,11 +327,10 @@ export async function loadAdminOrdersPageData(
     requestedPage,
     notice: getAdminOrdersNotice(searchParams.notice),
     mappedOrders,
-    filteredOrders,
+    totalMatchingOrders,
     currentPage,
     totalPages,
-    pageOrders,
+    pageOrders: mappedOrders,
     hasActiveFilters: statusFilter !== "all" || query.length > 0,
-    hasMoreResults: mappedOrders.length === FETCH_LIMIT,
   };
 }
