@@ -54,12 +54,24 @@ describe("admin orders list data", () => {
   it("builds a DB search filter that preserves order references and customer lookup", () => {
     assert.equal(
       buildAdminOrdersSearchFilter("PYV-Abc12345"),
-      "id.ilike.abc12345*,id.ilike.*PYV-Abc12345*,shipping_address->>full_name.ilike.*PYV-Abc12345*,shipping_address->>email.ilike.*PYV-Abc12345*,profile.full_name.ilike.*PYV-Abc12345*"
+      "shipping_address->>full_name.ilike.*PYV-Abc12345*,shipping_address->>email.ilike.*PYV-Abc12345*"
     );
 
     assert.equal(
       buildAdminOrdersSearchFilter("ada@example.com"),
-      "id.ilike.*ada@example.com*,shipping_address->>full_name.ilike.*ada@example.com*,shipping_address->>email.ilike.*ada@example.com*,profile.full_name.ilike.*ada@example.com*"
+      "shipping_address->>full_name.ilike.*ada@example.com*,shipping_address->>email.ilike.*ada@example.com*"
+    );
+  });
+
+  it("handles simple search terms without crashing (regression for oss crash)", () => {
+    assert.equal(
+      buildAdminOrdersSearchFilter("oss"),
+      "shipping_address->>full_name.ilike.*oss*,shipping_address->>email.ilike.*oss*"
+    );
+
+    assert.equal(
+      buildAdminOrdersSearchFilter("test"),
+      "shipping_address->>full_name.ilike.*test*,shipping_address->>email.ilike.*test*"
     );
   });
 

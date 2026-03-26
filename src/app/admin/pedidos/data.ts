@@ -190,25 +190,6 @@ function sanitizeAdminOrdersSearchValue(value: string) {
   return value.replace(/[,%()]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function extractAdminOrderReferencePrefix(query: string) {
-  const normalized = query.trim().toLowerCase();
-
-  if (!normalized) {
-    return null;
-  }
-
-  const isReferenceSearch = normalized.startsWith("pyv-") || /^[a-z0-9-]{4,}$/.test(normalized);
-
-  if (!isReferenceSearch) {
-    return null;
-  }
-
-  const withoutPrefix = normalized.startsWith("pyv-") ? normalized.slice(4) : normalized;
-  const compact = withoutPrefix.replace(/[^a-z0-9-]/g, "");
-
-  return compact.length >= 4 ? compact.slice(0, 8) : null;
-}
-
 export function buildAdminOrdersSearchFilter(query: string) {
   const sanitizedQuery = sanitizeAdminOrdersSearchValue(query);
 
@@ -218,16 +199,9 @@ export function buildAdminOrdersSearchFilter(query: string) {
 
   const wildcard = `*${sanitizedQuery}*`;
   const clauses = [
-    `id.ilike.${wildcard}`,
     `shipping_address->>full_name.ilike.${wildcard}`,
     `shipping_address->>email.ilike.${wildcard}`,
-    `profile.full_name.ilike.${wildcard}`,
   ];
-  const referencePrefix = extractAdminOrderReferencePrefix(query);
-
-  if (referencePrefix) {
-    clauses.unshift(`id.ilike.${referencePrefix}*`);
-  }
 
   return clauses.join(",");
 }
