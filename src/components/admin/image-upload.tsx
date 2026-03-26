@@ -16,6 +16,7 @@ import {
   deleteProductImageFile,
   uploadProductImageFiles,
 } from "@/app/admin/productos/actions";
+import { getUploadErrorMessage } from "@/lib/upload-errors";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -93,6 +94,8 @@ export function ImageUpload({
     async (files: FileList | File[]) => {
       if (!productId) return;
 
+      setActionError(null);
+
       const fileArray = Array.from(files);
       const newUploading: UploadingFile[] = [];
 
@@ -138,18 +141,21 @@ export function ImageUpload({
 
         const formData = new FormData();
         formData.append("files", item.file);
-        const result = await uploadProductImageFiles(productId, formData);
+        try {
+          const result = await uploadProductImageFiles(productId, formData);
 
-        if (result.failed.length > 0 || result.uploaded.length === 0) {
-          const uploadError = result.failed[0]?.error ?? "No se pudo subir la imagen.";
-          setUploading((prev) =>
-            prev.map((u) =>
-              u.id === item.id
-                ? { ...u, status: "error", error: uploadError }
-                : u
-            )
-          );
-        } else {
+          if (result.failed.length > 0 || result.uploaded.length === 0) {
+            const uploadError = result.failed[0]?.error ?? "No se pudo subir la imagen.";
+            setUploading((prev) =>
+              prev.map((u) =>
+                u.id === item.id
+                  ? { ...u, status: "error", progress: 0, error: uploadError }
+                  : u
+              )
+            );
+            continue;
+          }
+
           const publicUrl = result.uploaded[0];
 
           uploadedUrls.push(publicUrl);
@@ -161,6 +167,16 @@ export function ImageUpload({
                 : u
             )
           );
+        } catch (error) {
+          const uploadError = getUploadErrorMessage(error);
+          setUploading((prev) =>
+            prev.map((u) =>
+              u.id === item.id
+                ? { ...u, status: "error", progress: 0, error: uploadError }
+                : u
+            )
+          );
+          setActionError(uploadError);
         }
       }
 

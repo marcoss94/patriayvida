@@ -18,6 +18,10 @@ import {
   getCheckoutRedirectUrl,
   isMercadoPagoConfigured,
 } from "@/lib/mercadopago";
+import {
+  buildRateLimitHeaders,
+  consumeCheckoutRateLimit,
+} from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { isProductionRuntime } from "@/lib/env";
 
@@ -94,6 +98,7 @@ export type CheckoutRouteDeps = {
   isMercadoPagoConfigured: typeof isMercadoPagoConfigured;
   isProductionRuntime: typeof isProductionRuntime;
   normalizeCheckoutPayload: typeof normalizeCheckoutPayload;
+  consumeCheckoutRateLimit: typeof consumeCheckoutRateLimit;
   selectReusablePendingOrder: typeof selectReusablePendingOrder;
 };
 
@@ -110,6 +115,7 @@ const defaultDeps: CheckoutRouteDeps = {
   isMercadoPagoConfigured,
   isProductionRuntime,
   normalizeCheckoutPayload,
+  consumeCheckoutRateLimit,
   selectReusablePendingOrder,
 };
 
@@ -318,6 +324,18 @@ export function createCheckoutRoute(deps: CheckoutRouteDeps = defaultDeps) {
 
     if (!user) {
       return NextResponse.json({ error: "Tenés que iniciar sesión para comprar." }, { status: 401 });
+    }
+
+    const rateLimit = deps.consumeCheckoutRateLimit(request, user.id);
+
+    if (!rateLimit.ok) {
+      return NextResponse.json(
+        { error: "Demasiados intentos de checkout. Esperá un momento antes de reintentar." },
+        {
+          status: 429,
+          headers: buildRateLimitHeaders(rateLimit),
+        }
+      );
     }
 
     const rawBody = await request.json().catch(() => null);

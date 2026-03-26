@@ -5,6 +5,7 @@ import { Loader2, Minus, Plus, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ProductDescription } from "@/components/shop/product-description";
 import { useCart } from "@/stores/cart-store";
 import { useCartPreviewStore } from "@/stores/cart-preview-store";
 import { CartPreviewSheet } from "@/components/cart/cart-preview-sheet";
@@ -258,7 +259,7 @@ export function ProductPurchasePanel({
             <h3 className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-slate-300">
               Descripción
             </h3>
-            <p className="text-sm leading-relaxed text-slate-300">{description}</p>
+            <ProductDescription content={description} />
           </div>
         ) : null}
       </div>

@@ -7,6 +7,7 @@ import {
   normalizeCheckoutPayload,
 } from "@/lib/checkout";
 import type { MercadoPagoPreferenceBody } from "@/lib/mercadopago";
+import type { RateLimitResult } from "@/lib/rate-limit";
 import { getShippingRule } from "@/lib/shipping-pricing";
 import { selectReusablePendingOrder } from "@/lib/checkout-retry";
 import { createCheckoutRoute, type CheckoutRouteDeps } from "@/app/api/checkout/route";
@@ -58,6 +59,13 @@ function createDeps(overrides: Partial<CheckoutRouteDeps> & Pick<CheckoutRouteDe
     isMercadoPagoConfigured: () => true,
     isProductionRuntime: () => false,
     normalizeCheckoutPayload,
+    consumeCheckoutRateLimit: () => ({
+      ok: true,
+      limit: 6,
+      remaining: 5,
+      resetAt: Date.now() + 60_000,
+      retryAfterSeconds: 60,
+    }) satisfies RateLimitResult,
     selectReusablePendingOrder,
     ...rest,
   };
@@ -171,6 +179,31 @@ describe("POST /api/checkout", () => {
     assert.equal(metadata.shipping_cost_uyu, 180);
     assert.equal(metadata.total_uyu, 480);
     assert.equal(items.at(-1)?.id, "shipping");
+  });
+
+  it("rate limits repeated checkout attempts before expensive processing", async () => {
+    const supabase = createSupabaseRouteMock();
+    const POST = createCheckoutRoute(
+      createDeps({
+        createClient: async () => supabase as never,
+        consumeCheckoutRateLimit: () => ({
+          ok: false,
+          limit: 6,
+          remaining: 0,
+          resetAt: Date.now() + 60_000,
+          retryAfterSeconds: 60,
+        }),
+      })
+    );
+
+    const response = await POST(buildRequest());
+    const body = await response.json();
+
+    assert.equal(response.status, 429);
+    assert.equal(body.error, "Demasiados intentos de checkout. Esperá un momento antes de reintentar.");
+    assert.equal(response.headers.get("retry-after"), "60");
+    assert.equal(findCall(supabase.calls, (call) => call.table === "orders"), null);
+    assert.equal(findCall(supabase.calls, (call) => call.table === "product_variants"), null);
   });
 
   it("reuses a matching recent pending order instead of creating a new one", async () => {

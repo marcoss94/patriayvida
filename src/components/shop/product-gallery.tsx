@@ -86,7 +86,7 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
             <button
               type="button"
               aria-label="Ver imagen anterior"
-              className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200/15 bg-slate-950/72 text-white shadow-[0_8px_24px_rgba(15,23,42,0.35)] transition hover:border-red-400/70 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/70"
+              className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-slate-200/15 bg-slate-950/72 text-white shadow-[0_8px_24px_rgba(15,23,42,0.35)] transition hover:border-red-400/70 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/70"
               onClick={() => moveSelection(-1)}
             >
               <ChevronLeft className="h-5 w-5" aria-hidden="true" />
@@ -94,7 +94,7 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
             <button
               type="button"
               aria-label="Ver imagen siguiente"
-              className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200/15 bg-slate-950/72 text-white shadow-[0_8px_24px_rgba(15,23,42,0.35)] transition hover:border-red-400/70 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/70"
+              className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-slate-200/15 bg-slate-950/72 text-white shadow-[0_8px_24px_rgba(15,23,42,0.35)] transition hover:border-red-400/70 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/70"
               onClick={() => moveSelection(1)}
             >
               <ChevronRight className="h-5 w-5" aria-hidden="true" />

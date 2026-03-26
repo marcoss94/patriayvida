@@ -6,6 +6,7 @@ import { PageContainer } from '@/components/layout/page-container';
 import { ChevronRight, Home } from 'lucide-react';
 import { ProductPurchasePanel } from '@/components/cart/product-purchase-panel';
 import { ProductGallery } from '@/components/shop/product-gallery';
+import { productDescriptionToPlainText } from '@/lib/product-description';
 import type { Metadata } from 'next';
 import type { ProductVariant } from '@/types/product';
 
@@ -32,7 +33,9 @@ export async function generateMetadata({ params }: ProductDetailPageProps): Prom
 
   return {
     title: `${product.name} | Patria y Vida`,
-    description: product.description || `Comprá ${product.name} en Patria y Vida. Envío a todo el país.`,
+    description:
+      productDescriptionToPlainText(product.description) ||
+      `Comprá ${product.name} en Patria y Vida. Envío a todo el país.`,
   };
 }
 

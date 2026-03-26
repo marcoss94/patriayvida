@@ -53,6 +53,41 @@ type ReconciliationResult = {
   mpStatus?: string | null;
   status?: OrdersRow["status"];
   mpPaymentId?: string | null;
+  integrityFailures?: string[];
+};
+
+type ReconciliationOrderRow = Pick<
+  OrdersRow,
+  | "id"
+  | "status"
+  | "mp_status"
+  | "mp_payment_id"
+  | "mp_preference_id"
+  | "subtotal"
+  | "shipping_cost"
+  | "total"
+>;
+
+export type MercadoPagoWebhookRouteDeps = {
+  createAdminClient: typeof createAdminClient;
+  getMercadoPagoMerchantOrder: typeof getMercadoPagoMerchantOrder;
+  getMercadoPagoPayment: typeof getMercadoPagoPayment;
+  getMercadoPagoPreference: typeof getMercadoPagoPreference;
+  getMercadoPagoWebhookSecrets: typeof getMercadoPagoWebhookSecrets;
+  getMercadoPagoWebhookSecurityMode: typeof getMercadoPagoWebhookSecurityMode;
+  isMercadoPagoConfigured: typeof isMercadoPagoConfigured;
+  isProductionRuntime: typeof isProductionRuntime;
+};
+
+const defaultDeps: MercadoPagoWebhookRouteDeps = {
+  createAdminClient,
+  getMercadoPagoMerchantOrder,
+  getMercadoPagoPayment,
+  getMercadoPagoPreference,
+  getMercadoPagoWebhookSecrets,
+  getMercadoPagoWebhookSecurityMode,
+  isMercadoPagoConfigured,
+  isProductionRuntime,
 };
 
 function normalizeTopic(
@@ -110,9 +145,8 @@ function getNotificationResourceId(
 function verifyWebhookSignature(
   request: NextRequest,
   payload: z.infer<typeof webhookNotificationSchema>,
+  secrets: readonly string[],
 ) {
-  const secrets = getMercadoPagoWebhookSecrets();
-
   if (secrets.length === 0) {
     return {
       ok: true,
@@ -276,6 +310,100 @@ function mapMerchantOrderMpStatus(
   return `merchant_order:${merchantOrder.order_status ?? merchantOrder.status ?? "unknown"}`;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function areMoneyAmountsEqual(left: number, right: number) {
+  return Math.round(left * 100) === Math.round(right * 100);
+}
+
+function buildIntegrityBlockedMpStatus(
+  payment: MercadoPagoPaymentResponse,
+  failures: readonly string[],
+) {
+  const normalizedPaymentStatus = normalizePaymentStatus(payment.status) ?? "payment_unknown";
+  return `integrity_blocked:${normalizedPaymentStatus}:${failures.join("+")}`;
+}
+
+function evaluateApprovedPaymentIntegrity(
+  order: ReconciliationOrderRow,
+  payment: MercadoPagoPaymentResponse,
+  mpPreferenceId?: string | null,
+) {
+  const failures: string[] = [];
+  const paymentRecord = payment as unknown as Record<string, unknown>;
+  const metadata = isRecord(payment.metadata) ? payment.metadata : null;
+  const externalReference = payment.external_reference?.trim() || null;
+  const metadataOrderId = readString(metadata?.order_id);
+  const transactionAmount = readNumber(paymentRecord.transaction_amount);
+  const currencyId = readString(paymentRecord.currency_id)?.toUpperCase() ?? null;
+  const metadataTotalUyu = readNumber(metadata?.total_uyu);
+  const metadataSubtotalUyu = readNumber(metadata?.subtotal_uyu);
+  const metadataShippingCostUyu = readNumber(metadata?.shipping_cost_uyu);
+
+  if (externalReference && externalReference !== order.id) {
+    failures.push("external_reference_mismatch");
+  }
+
+  if (metadataOrderId && metadataOrderId !== order.id) {
+    failures.push("metadata_order_id_mismatch");
+  }
+
+  if (externalReference && metadataOrderId && externalReference !== metadataOrderId) {
+    failures.push("payment_reference_conflict");
+  }
+
+  if (currencyId && currencyId !== "UYU") {
+    failures.push("currency_mismatch");
+  }
+
+  if (transactionAmount !== null && !areMoneyAmountsEqual(transactionAmount, order.total)) {
+    failures.push("amount_mismatch");
+  }
+
+  if (metadataTotalUyu !== null && !areMoneyAmountsEqual(metadataTotalUyu, order.total)) {
+    failures.push("metadata_total_mismatch");
+  }
+
+  if (metadataSubtotalUyu !== null && !areMoneyAmountsEqual(metadataSubtotalUyu, order.subtotal)) {
+    failures.push("metadata_subtotal_mismatch");
+  }
+
+  if (
+    metadataShippingCostUyu !== null &&
+    !areMoneyAmountsEqual(metadataShippingCostUyu, order.shipping_cost)
+  ) {
+    failures.push("metadata_shipping_mismatch");
+  }
+
+  if (mpPreferenceId && order.mp_preference_id && mpPreferenceId !== order.mp_preference_id) {
+    failures.push("preference_mismatch");
+  }
+
+  return {
+    ok: failures.length === 0,
+    failures,
+  };
+}
+
 function chooseBusinessStatusFromPayment(
   currentStatus: OrdersRow["status"],
   paymentStatus: string | undefined,
@@ -322,7 +450,9 @@ async function findOrderForReconciliation(params: {
   if (orderId) {
     const { data } = await admin
       .from("orders")
-      .select("id, status, mp_status, mp_payment_id, mp_preference_id")
+      .select(
+        "id, status, mp_status, mp_payment_id, mp_preference_id, subtotal, shipping_cost, total"
+      )
       .eq("id", orderId)
       .maybeSingle();
 
@@ -334,7 +464,9 @@ async function findOrderForReconciliation(params: {
   if (mpPaymentId) {
     const { data } = await admin
       .from("orders")
-      .select("id, status, mp_status, mp_payment_id, mp_preference_id")
+      .select(
+        "id, status, mp_status, mp_payment_id, mp_preference_id, subtotal, shipping_cost, total"
+      )
       .eq("mp_payment_id", mpPaymentId)
       .maybeSingle();
 
@@ -346,7 +478,9 @@ async function findOrderForReconciliation(params: {
   if (mpPreferenceId) {
     const { data } = await admin
       .from("orders")
-      .select("id, status, mp_status, mp_payment_id, mp_preference_id")
+      .select(
+        "id, status, mp_status, mp_payment_id, mp_preference_id, subtotal, shipping_cost, total"
+      )
       .eq("mp_preference_id", mpPreferenceId)
       .maybeSingle();
 
@@ -475,6 +609,42 @@ async function reconcilePayment(
     normalizedPaymentStatus ?? undefined,
   );
 
+  if (nextStatus === "paid") {
+    const integrityCheck = evaluateApprovedPaymentIntegrity(
+      resolvedOrder,
+      payment,
+      mpPreferenceId,
+    );
+
+    if (!integrityCheck.ok) {
+      const blockedMpStatus = buildIntegrityBlockedMpStatus(
+        payment,
+        integrityCheck.failures,
+      );
+      const blockedResult = await updateOrderIfNeeded(admin, resolvedOrder, {
+        mp_status:
+          resolvedOrder.mp_status === blockedMpStatus ? undefined : blockedMpStatus,
+        mp_payment_id:
+          resolvedOrder.mp_payment_id === mpPaymentId ? undefined : mpPaymentId,
+        mp_preference_id:
+          mpPreferenceId &&
+          !integrityCheck.failures.includes("preference_mismatch") &&
+          resolvedOrder.mp_preference_id !== mpPreferenceId
+            ? mpPreferenceId
+            : undefined,
+      });
+
+      return {
+        ...blockedResult,
+        reason:
+          blockedResult.action === "updated"
+            ? "payment_integrity_blocked"
+            : blockedResult.reason,
+        integrityFailures: integrityCheck.failures,
+      };
+    }
+  }
+
   return updateOrderIfNeeded(admin, resolvedOrder, {
     mp_status:
       resolvedOrder.mp_status === nextMpStatus ? undefined : nextMpStatus,
@@ -520,12 +690,13 @@ function selectBestMerchantOrderPayment(
 async function reconcileMerchantOrder(
   admin: ReturnType<typeof createAdminClient>,
   merchantOrder: MercadoPagoMerchantOrderResponse,
+  getPayment: typeof getMercadoPagoPayment,
 ): Promise<ReconciliationResult> {
   const mpPreferenceId = merchantOrder.preference_id ?? null;
   const paymentId = selectBestMerchantOrderPayment(merchantOrder);
 
   if (paymentId) {
-    const payment = await getMercadoPagoPayment(paymentId);
+    const payment = await getPayment(paymentId);
     return reconcilePayment(admin, payment, mpPreferenceId);
   }
 
@@ -588,227 +759,246 @@ async function reconcilePreference(
   });
 }
 
-export async function POST(request: NextRequest) {
-  if (!isMercadoPagoConfigured()) {
-    console.error(
-      "Mercado Pago webhook received without server credentials configured.",
+export function createMercadoPagoWebhookRoute(
+  deps: MercadoPagoWebhookRouteDeps = defaultDeps,
+) {
+  return async function POST(request: NextRequest) {
+    if (!deps.isMercadoPagoConfigured()) {
+      console.error(
+        "Mercado Pago webhook received without server credentials configured.",
+      );
+      return NextResponse.json(
+        { error: "Mercado Pago is not configured." },
+        { status: 500 },
+      );
+    }
+
+    const webhookSecurityMode = deps.getMercadoPagoWebhookSecurityMode();
+
+    if (webhookSecurityMode === "misconfigured_production") {
+      console.error(
+        "Mercado Pago webhook rejected because signature verification is not configured.",
+        {
+          mode: webhookSecurityMode,
+          reason: "missing_webhook_secret",
+        },
+      );
+
+      return NextResponse.json(
+        {
+          received: false,
+          reason: "webhook_signature_not_configured",
+        },
+        { status: 503 },
+      );
+    }
+
+    const rawText = await request.text();
+    const jsonPayload = rawText
+      ? (() => {
+          try {
+            return JSON.parse(rawText);
+          } catch {
+            return null;
+          }
+        })()
+      : {};
+    const parsed = webhookNotificationSchema.safeParse(jsonPayload);
+
+    if (!parsed.success) {
+      console.error("Mercado Pago webhook payload rejected", {
+        issues: parsed.error.issues,
+        body: rawText,
+      });
+
+      return NextResponse.json(
+        { received: false, reason: "invalid_payload" },
+        { status: 400 },
+      );
+    }
+
+    const topic = getNotificationTopic(request, parsed.data);
+    const resourceId = getNotificationResourceId(request, parsed.data);
+    const requestId = request.headers.get("x-request-id");
+    const notificationId = parsed.data.id ? String(parsed.data.id) : null;
+
+    if (topic === "unknown" || !resourceId) {
+      console.warn(
+        "Mercado Pago webhook ignored because topic or resource id is missing",
+        {
+          topic,
+          resourceId,
+          payload: parsed.data,
+        },
+      );
+
+      return NextResponse.json(
+        { received: true, ignored: true },
+        { status: 202 },
+      );
+    }
+
+    const signatureCheck = verifyWebhookSignature(
+      request,
+      parsed.data,
+      deps.getMercadoPagoWebhookSecrets(),
     );
-    return NextResponse.json(
-      { error: "Mercado Pago is not configured." },
-      { status: 500 },
-    );
-  }
-
-  const webhookSecurityMode = getMercadoPagoWebhookSecurityMode();
-
-  if (webhookSecurityMode === "misconfigured_production") {
-    console.error(
-      "Mercado Pago webhook rejected because signature verification is not configured.",
-      {
-        mode: webhookSecurityMode,
-        reason: "missing_webhook_secret",
-      },
-    );
-
-    return NextResponse.json(
-      {
-        received: false,
-        reason: "webhook_signature_not_configured",
-      },
-      { status: 503 },
-    );
-  }
-
-  const rawText = await request.text();
-  const jsonPayload = rawText
-    ? (() => {
-        try {
-          return JSON.parse(rawText);
-        } catch {
-          return null;
-        }
-      })()
-    : {};
-  const parsed = webhookNotificationSchema.safeParse(jsonPayload);
-
-  if (!parsed.success) {
-    console.error("Mercado Pago webhook payload rejected", {
-      issues: parsed.error.issues,
-      body: rawText,
-    });
-
-    return NextResponse.json(
-      { received: false, reason: "invalid_payload" },
-      { status: 400 },
-    );
-  }
-
-  const topic = getNotificationTopic(request, parsed.data);
-  const resourceId = getNotificationResourceId(request, parsed.data);
-  const requestId = request.headers.get("x-request-id");
-  const notificationId = parsed.data.id ? String(parsed.data.id) : null;
-
-  if (topic === "unknown" || !resourceId) {
-    console.warn(
-      "Mercado Pago webhook ignored because topic or resource id is missing",
-      {
-        topic,
-        resourceId,
-        payload: parsed.data,
-      },
-    );
-
-    return NextResponse.json(
-      { received: true, ignored: true },
-      { status: 202 },
-    );
-  }
-
-  const signatureCheck = verifyWebhookSignature(request, parsed.data);
-  const routeDecision = resolveMercadoPagoWebhookRouteDecision({
-    topic,
-    resourceId,
-    hasResourceId: Boolean(resourceId),
-    signatureOk: signatureCheck.ok,
-    signatureMode: signatureCheck.mode,
-    notificationId,
-    requestId,
-    action: parsed.data.action ?? null,
-  });
-
-  if (!signatureCheck.ok) {
-    console.warn("Mercado Pago webhook accepted without signature verification", {
+    const routeDecision = resolveMercadoPagoWebhookRouteDecision({
       topic,
       resourceId,
+      hasResourceId: Boolean(resourceId),
+      signatureOk: signatureCheck.ok,
+      signatureMode: signatureCheck.mode,
       notificationId,
-      requestId: signatureCheck.requestId,
-      runtime: isProductionRuntime() ? "production" : "development",
-      mode: webhookSecurityMode,
-      reason: signatureCheck.reason,
-      diagnosticCode: signatureCheck.reason,
-      hasSignatureHeader: Boolean(request.headers.get("x-signature")),
-      sourceOfTruth: "mercadopago_api",
+      requestId,
+      action: parsed.data.action ?? null,
     });
-  }
 
-  console.info("Mercado Pago webhook received", {
-    topic,
-    resourceId,
-    notificationId,
-    requestId,
-    mode: webhookSecurityMode,
-    verificationStatus: routeDecision.verificationStatus,
-    signatureReason: signatureCheck.reason,
-    matchedSecret: signatureCheck.matchedSecret,
-    manifestMatched: signatureCheck.manifestMatched,
-    sourceOfTruth: "mercadopago_api",
-  });
-
-  if (signatureCheck.mode === "skipped") {
-    console.warn(
-      "Mercado Pago webhook signature verification running in development fallback mode",
-      {
+    if (!signatureCheck.ok) {
+      console.warn("Mercado Pago webhook accepted without signature verification", {
         topic,
         resourceId,
         notificationId,
         requestId: signatureCheck.requestId,
+        runtime: deps.isProductionRuntime() ? "production" : "development",
+        mode: webhookSecurityMode,
         reason: signatureCheck.reason,
-      },
-    );
-  }
-
-  if (!routeDecision.shouldReconcile) {
-    return NextResponse.json(
-      {
-        received: true,
-        topic,
-        resourceId,
-        verificationStatus: routeDecision.verificationStatus,
-        ignored: true,
-      },
-      { status: routeDecision.responseStatus },
-    );
-  }
-
-  try {
-    const admin = createAdminClient();
-    let result: ReconciliationResult;
-
-    switch (topic) {
-      case "payment": {
-        const payment = await getMercadoPagoPayment(resourceId);
-        result = await reconcilePayment(admin, payment);
-        break;
-      }
-      case "merchant_order": {
-        const merchantOrder = await getMercadoPagoMerchantOrder(resourceId);
-        result = await reconcileMerchantOrder(admin, merchantOrder);
-        break;
-      }
-      case "preference": {
-        const preference = await getMercadoPagoPreference(resourceId);
-        result = await reconcilePreference(admin, preference);
-        break;
-      }
-      default: {
-        result = {
-          orderId: null,
-          action: "ignored",
-          reason: "unsupported_topic",
-        };
-      }
-    }
-
-    if (result.action === "ignored") {
-      console.warn("Mercado Pago webhook could not reconcile an order", {
-        topic,
-        resourceId,
-        notificationId,
-        requestId,
-        orderId: result.orderId,
-        reason: result.reason,
-        mpStatus: result.mpStatus,
-        mpPaymentId: result.mpPaymentId,
-      });
-    } else {
-      console.info("Mercado Pago webhook reconciled", {
-        topic,
-        resourceId,
-        notificationId,
-        requestId,
-        orderId: result.orderId,
-        action: result.action,
-        reason: result.reason,
-        status: result.status,
-        mpStatus: result.mpStatus,
-        mpPaymentId: result.mpPaymentId,
+        diagnosticCode: signatureCheck.reason,
+        hasSignatureHeader: Boolean(request.headers.get("x-signature")),
+        sourceOfTruth: "mercadopago_api",
       });
     }
 
-    return NextResponse.json({
-      received: true,
-      topic,
-      resourceId,
-      verificationStatus: routeDecision.verificationStatus,
-      orderId: result.orderId,
-      action: result.action,
-      reason: result.reason,
-      mpStatus: result.mpStatus ?? null,
-      status: result.status ?? null,
-      mpPaymentId: result.mpPaymentId ?? null,
-    }, { status: routeDecision.responseStatus });
-  } catch (error) {
-    console.error("Mercado Pago webhook reconciliation failed", {
+    console.info("Mercado Pago webhook received", {
       topic,
       resourceId,
       notificationId,
       requestId,
-      error,
+      mode: webhookSecurityMode,
+      verificationStatus: routeDecision.verificationStatus,
+      signatureReason: signatureCheck.reason,
+      matchedSecret: signatureCheck.matchedSecret,
+      manifestMatched: signatureCheck.manifestMatched,
+      sourceOfTruth: "mercadopago_api",
     });
 
-    return NextResponse.json(
-      { received: false, reason: "reconciliation_failed" },
-      { status: 500 },
-    );
-  }
+    if (signatureCheck.mode === "skipped") {
+      console.warn(
+        "Mercado Pago webhook signature verification running in development fallback mode",
+        {
+          topic,
+          resourceId,
+          notificationId,
+          requestId: signatureCheck.requestId,
+          reason: signatureCheck.reason,
+        },
+      );
+    }
+
+    if (!routeDecision.shouldReconcile) {
+      return NextResponse.json(
+        {
+          received: true,
+          topic,
+          resourceId,
+          verificationStatus: routeDecision.verificationStatus,
+          ignored: true,
+        },
+        { status: routeDecision.responseStatus },
+      );
+    }
+
+    try {
+      const admin = deps.createAdminClient();
+      let result: ReconciliationResult;
+
+      switch (topic) {
+        case "payment": {
+          const payment = await deps.getMercadoPagoPayment(resourceId);
+          result = await reconcilePayment(admin, payment);
+          break;
+        }
+        case "merchant_order": {
+          const merchantOrder = await deps.getMercadoPagoMerchantOrder(resourceId);
+          result = await reconcileMerchantOrder(
+            admin,
+            merchantOrder,
+            deps.getMercadoPagoPayment,
+          );
+          break;
+        }
+        case "preference": {
+          const preference = await deps.getMercadoPagoPreference(resourceId);
+          result = await reconcilePreference(admin, preference);
+          break;
+        }
+        default: {
+          result = {
+            orderId: null,
+            action: "ignored",
+            reason: "unsupported_topic",
+          };
+        }
+      }
+
+      if (result.action === "ignored") {
+        console.warn("Mercado Pago webhook could not reconcile an order", {
+          topic,
+          resourceId,
+          notificationId,
+          requestId,
+          orderId: result.orderId,
+          reason: result.reason,
+          mpStatus: result.mpStatus,
+          mpPaymentId: result.mpPaymentId,
+          integrityFailures: result.integrityFailures,
+        });
+      } else {
+        console.info("Mercado Pago webhook reconciled", {
+          topic,
+          resourceId,
+          notificationId,
+          requestId,
+          orderId: result.orderId,
+          action: result.action,
+          reason: result.reason,
+          status: result.status,
+          mpStatus: result.mpStatus,
+          mpPaymentId: result.mpPaymentId,
+          integrityFailures: result.integrityFailures,
+        });
+      }
+
+      return NextResponse.json(
+        {
+          received: true,
+          topic,
+          resourceId,
+          verificationStatus: routeDecision.verificationStatus,
+          orderId: result.orderId,
+          action: result.action,
+          reason: result.reason,
+          mpStatus: result.mpStatus ?? null,
+          status: result.status ?? null,
+          mpPaymentId: result.mpPaymentId ?? null,
+        },
+        { status: routeDecision.responseStatus },
+      );
+    } catch (error) {
+      console.error("Mercado Pago webhook reconciliation failed", {
+        topic,
+        resourceId,
+        notificationId,
+        requestId,
+        error,
+      });
+
+      return NextResponse.json(
+        { received: false, reason: "reconciliation_failed" },
+        { status: 500 },
+      );
+    }
+  };
 }
+
+export const POST = createMercadoPagoWebhookRoute();

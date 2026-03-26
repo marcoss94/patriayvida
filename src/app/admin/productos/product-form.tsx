@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useEffect } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,11 @@ import {
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { ImageUpload } from "@/components/admin/image-upload";
+import { ProductDescription } from "@/components/shop/product-description";
+import {
+  applyProductDescriptionToolbarAction,
+  type ProductDescriptionToolbarAction,
+} from "@/lib/product-description";
 
 type Category = {
   id: string;
@@ -63,9 +68,11 @@ export function ProductForm({ categories, product }: ProductFormProps) {
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? "");
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
+  const [description, setDescription] = useState(product?.description ?? "");
   const [images, setImages] = useState<string[]>(product?.images ?? []);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [imagesError, setImagesError] = useState<string | null>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Variant state: map of size -> { checked, stock }
   const [variants, setVariants] = useState<
@@ -129,6 +136,30 @@ export function ProductForm({ categories, product }: ProductFormProps) {
       ...prev,
       [size]: { ...prev[size], stock: Math.max(0, stock) },
     }));
+  }
+
+  function handleDescriptionToolbar(action: ProductDescriptionToolbarAction) {
+    const textarea = descriptionRef.current;
+
+    if (!textarea) {
+      return;
+    }
+
+    const nextState = applyProductDescriptionToolbarAction(
+      {
+        value: description,
+        selectionStart: textarea.selectionStart,
+        selectionEnd: textarea.selectionEnd,
+      },
+      action,
+    );
+
+    setDescription(nextState.value);
+
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(nextState.selectionStart, nextState.selectionEnd);
+    });
   }
 
   return (
@@ -206,17 +237,6 @@ export function ProductForm({ categories, product }: ProductFormProps) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="description">Descripción</Label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    defaultValue={product?.description ?? ""}
-                    placeholder="Descripción del producto"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
                   <Label>Categoría *</Label>
                   {categories.length === 0 ? (
                     <p className="text-sm text-destructive">
@@ -246,6 +266,91 @@ export function ProductForm({ categories, product }: ProductFormProps) {
                       ))}
                     </select>
                   )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="description">Descripción</Label>
+                  <div className="overflow-hidden rounded-xl border border-border bg-muted/20">
+                    <div className="border-b border-border bg-background/80">
+                      <div className="flex items-center justify-between gap-3 px-3 py-2">
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                          Editor
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Formato simple y seguro.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 border-t border-border px-3 py-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDescriptionToolbar("bold")}
+                        >
+                          Negrita
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDescriptionToolbar("italic")}
+                        >
+                          Cursiva
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDescriptionToolbar("bulletList")}
+                        >
+                          Lista
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDescriptionToolbar("lineBreak")}
+                        >
+                          Salto de linea
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Textarea
+                      ref={descriptionRef}
+                      id="description"
+                      name="description"
+                      value={description}
+                      onChange={(event) => setDescription(event.target.value)}
+                      placeholder="Conta materiales, detalles y cuidados. Usa los botones para destacar partes importantes."
+                      rows={8}
+                      className="min-h-48 resize-y rounded-none border-0 bg-transparent px-3 py-3 shadow-none focus-visible:ring-0"
+                    />
+
+                    <div className="border-t border-border bg-background/65 px-3 py-3">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                          Vista previa
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Se actualiza mientras escribis.
+                        </p>
+                      </div>
+
+                      <div className="min-h-28 rounded-lg border border-dashed border-border/70 bg-background px-4 py-3">
+                        {description.trim() ? (
+                          <ProductDescription content={description} tone="adminPreview" />
+                        ) : (
+                          <p className="text-sm leading-relaxed text-muted-foreground">
+                            La vista previa aparece aca con el mismo formato que se usa en la tienda.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Formato simple y seguro: parrafos, **negrita**, *cursiva*, listas con guion y saltos de linea.
+                  </p>
                 </div>
               </CardContent>
             </Card>
